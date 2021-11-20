@@ -1,6 +1,6 @@
 import unittest
 
-import cv2 as cv
+import cv2.cv2 as cv
 import numpy as np
 
 import harris.harris_detector as harris
@@ -40,10 +40,21 @@ class HarrisDetectorTest(unittest.TestCase):
             output[1, 3],
         )
 
-    def test_calculate_cornerness_image(self):
+    def test_detect_harris_corners(self) -> None:
         background = np.zeros((100, 200), dtype=float)
-        image = cv.rectangle(background, (50, 25), (150, 75), 255, -1)
-        window_name = "window"
-        sobel_x = harris._apply_sobel_x(image)
-        cornerness_image = harris._calculate_cornerness_image(image)
-        # TODO check that maxima occur around the corners
+        top_y = 25
+        bottom_y = 75
+        left_x = 50
+        right_x = 150
+
+        expected_corners = [
+            np.array([top_y, left_x]),
+            np.array([top_y, right_x]),
+            np.array([bottom_y, left_x]),
+            np.array([bottom_y, right_x]),
+        ]
+
+        image = cv.rectangle(background, (left_x, top_y), (right_x, bottom_y), 255, -1)
+        corner_coordinates = harris.detect_harris_corners(image)
+        for expected_corner, corner in zip(expected_corners, corner_coordinates):
+            self.assertTrue(np.allclose(expected_corner, corner, atol=1.0))

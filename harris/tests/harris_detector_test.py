@@ -9,6 +9,8 @@ import sys
 
 sys.path.append("/Users/bopra/code/structure_from_motion")
 
+import blur.gaussian as gaussian
+import common.correlate as correlate
 import harris.harris_detector as harris
 
 
@@ -49,6 +51,9 @@ class TestHarrisDetector(unittest.TestCase):
         )
         gray_test_image = cv.cvtColor(test_image, cv.COLOR_RGB2GRAY)
 
+        gaussian_kernel = gaussian.create_gaussian_kernel(5, 1.0)
+        gray_test_image = correlate.cross_correlate(gray_test_image, gaussian_kernel)
+
         corner_coordinates = harris.detect_harris_corners(gray_test_image)
 
         for coordinate in corner_coordinates:
@@ -61,6 +66,8 @@ class TestHarrisDetector(unittest.TestCase):
         cv.namedWindow(
             window_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO | cv.WINDOW_GUI_EXPANDED
         )
+        cv.imshow(window_name, gray_test_image)
+        cv.waitKey()
         cv.imshow(window_name, test_image)
         cv.waitKey()
 

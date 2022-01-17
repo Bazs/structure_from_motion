@@ -6,24 +6,48 @@ from common import correlate
 _sobel_x_kernel = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=float)
 
 
-def detect_harris_corners(image: np.ndarray, block_size: int = 2, k: float = 0.04):
+def detect_harris_corners(
+    image: np.ndarray, num_corners: int = 50, block_size: int = 2, k: float = 0.04
+):
     """Detects corners in the image using the Harris corner detector algorithm.
     See https://en.wikipedia.org/wiki/Harris_corner_detector.
 
     @param image MxN matrix representing a grayscale image.
+    @param num_corners The number of corners to return. These will be the corners with the highest corner-ness score.
     @param block_size The block size to examine for cornerness. A block of block_size x block_size dimensions will be
     used to calculate the second moment matrix for each pixel.
     @param k The constant to use in the cornerness-function calculation.
     """
+    if num_corners <= 0:
+        raise ValueError("num_corners needs to be at least 1")
+
     cornerness_image = _calculate_cornerness_image(image, block_size, k)
     cornerness_image[cornerness_image < 0] = 0.0
     _non_max_suppress(cornerness_image)
-    y_indices, x_indices = np.nonzero(cornerness_image)
+
+    # Get all indices in the cornerness image sorted by the cornerness-value
+    highest_score_indices = np.flip(np.argsort(cornerness_image, axis=None))
+    # Keep at most num_corners of these indices
+    highest_score_indices = highest_score_indices[:num_corners]
+    # Prune any indices which have a zero cornerness value
+    highest_score_indices = [
+        index
+        for index in highest_score_indices
+        if cornerness_image[np.unravel_index(index, cornerness_image.shape)] != 0
+    ]
+
+    # Convert flat indices into 2D indices
+    y_indices, x_indices = np.unravel_index(
+        highest_score_indices, cornerness_image.shape
+    )
+
     y_indices = y_indices.astype(float) + float(block_size) / 2.0
     x_indices = x_indices.astype(float) + float(block_size) / 2.0
+
     corner_coordinates = [
         np.array([y_index, x_index]) for y_index, x_index in zip(y_indices, x_indices)
     ]
+
     return corner_coordinates
 
 

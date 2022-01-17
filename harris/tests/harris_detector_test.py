@@ -23,10 +23,10 @@ class TestHarrisDetector(unittest.TestCase):
         right_x = 150
 
         expected_corners = [
-            np.array([top_y, left_x]),
-            np.array([top_y, right_x]),
             np.array([bottom_y, left_x]),
             np.array([bottom_y, right_x]),
+            np.array([top_y, left_x]),
+            np.array([top_y, right_x]),
         ]
 
         image = cv.rectangle(background, (left_x, top_y), (right_x, bottom_y), 255, -1)
@@ -40,6 +40,11 @@ class TestHarrisDetector(unittest.TestCase):
         )
         self.assertTrue(test_image_path.is_file())
 
+        window_name = "window"
+        cv.namedWindow(
+            window_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO | cv.WINDOW_GUI_EXPANDED
+        )
+
         test_image = cv.imread(str(test_image_path))
         downscale_factor = 8
         smaller_size = (
@@ -51,8 +56,13 @@ class TestHarrisDetector(unittest.TestCase):
         )
         gray_test_image = cv.cvtColor(test_image, cv.COLOR_RGB2GRAY)
 
-        gaussian_kernel = gaussian.create_gaussian_kernel(5, 1.0)
+        # Before blur
+        cv.imshow(window_name, gray_test_image)
+        cv.waitKey()
+
+        gaussian_kernel = gaussian.create_gaussian_kernel(3, 0.5)
         gray_test_image = correlate.cross_correlate(gray_test_image, gaussian_kernel)
+        gray_test_image = gray_test_image.astype(np.ubyte)
 
         corner_coordinates = harris.detect_harris_corners(gray_test_image)
 
@@ -62,10 +72,6 @@ class TestHarrisDetector(unittest.TestCase):
                 test_image, center, radius=1, color=(255, 0, 0), thickness=-1
             )
 
-        window_name = "window"
-        cv.namedWindow(
-            window_name, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO | cv.WINDOW_GUI_EXPANDED
-        )
         cv.imshow(window_name, gray_test_image)
         cv.waitKey()
         cv.imshow(window_name, test_image)

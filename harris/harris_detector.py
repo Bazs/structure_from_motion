@@ -1,14 +1,16 @@
+from typing import List, Tuple
+
 import cv2.cv2 as cv
 import numpy as np
 
-from common import correlate
+from common import correlate, feature
 
 _sobel_x_kernel = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=float)
 
 
 def detect_harris_corners(
-    image: np.ndarray, num_corners: int = 50, block_size: int = 2, k: float = 0.04
-):
+        image: np.ndarray, num_corners: int = 50, block_size: int = 2, k: float = 0.04
+) -> List[feature.Feature]:
     """Detects corners in the image using the Harris corner detector algorithm.
     See https://en.wikipedia.org/wiki/Harris_corner_detector.
 
@@ -45,14 +47,15 @@ def detect_harris_corners(
     x_indices = x_indices.astype(float) + float(block_size) / 2.0
 
     corner_coordinates = [
-        np.array([y_index, x_index]) for y_index, x_index in zip(y_indices, x_indices)
+        feature.Feature(x=x_index, y=y_index)
+        for y_index, x_index in zip(y_indices, x_indices)
     ]
 
     return corner_coordinates
 
 
 def _calculate_cornerness_image(
-    image: np.ndarray, block_size: int = 2, k: float = 0.04
+        image: np.ndarray, block_size: int = 2, k: float = 0.04
 ):
     sobel_y = _apply_sobel_y(image)
     sobel_x = _apply_sobel_x(image)
@@ -83,9 +86,9 @@ def _calculate_cornerness_image(
 
 
 def _select_window(
-    matrix: np.ndarray, row: int, col: int, window_size: int
+        matrix: np.ndarray, row: int, col: int, window_size: int
 ) -> np.ndarray:
-    return matrix[row : row + window_size, col : col + window_size]
+    return matrix[row: row + window_size, col: col + window_size]
 
 
 def _non_max_suppress(image: np.ndarray):

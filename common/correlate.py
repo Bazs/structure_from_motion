@@ -4,7 +4,7 @@ import numpy as np
 def cross_correlate(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     """Slides the kernel over the image and calculates the per-pixel cross correlation.
 
-    Uses zero padding. Only odd-sized square kernels are supported.
+    Uses zero "same" padding. Only odd-sized square kernels are supported.
     :param image The image to cross correlate. Must be grayscale.
     :param kernel The kernel to cross correlate with.
     :return The result of the cross correlation, same size as image due to the zero padding.
@@ -30,8 +30,8 @@ def cross_correlate(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
         for column_idx in range(kernel_half_size, kernel_half_size + output_width):
             output_image[row_idx, column_idx] = np.dot(
                 image[
-                    row_idx - kernel_half_size : row_idx + kernel_half_size + 1,
-                    column_idx - kernel_half_size : column_idx + kernel_half_size + 1,
+                row_idx - kernel_half_size: row_idx + kernel_half_size + 1,
+                column_idx - kernel_half_size: column_idx + kernel_half_size + 1,
                 ].flatten(),
                 kernel.flatten(),
             )

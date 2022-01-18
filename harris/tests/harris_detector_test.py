@@ -9,8 +9,8 @@ import sys
 
 sys.path.append("/Users/bopra/code/structure_from_motion")
 
+from common import correlate
 import blur.gaussian as gaussian
-import common.correlate as correlate
 import harris.harris_detector as harris
 
 
@@ -23,18 +23,19 @@ class TestHarrisDetector(unittest.TestCase):
         right_x = 150
 
         expected_corners = [
-            np.array([bottom_y, left_x]),
-            np.array([bottom_y, right_x]),
-            np.array([top_y, left_x]),
-            np.array([top_y, right_x]),
+            (bottom_y, left_x),
+            (bottom_y, right_x),
+            (top_y, left_x),
+            (top_y, right_x),
         ]
 
         image = cv.rectangle(background, (left_x, top_y), (right_x, bottom_y), 255, -1)
         corner_coordinates = harris.detect_harris_corners(image)
         for expected_corner, corner in zip(expected_corners, corner_coordinates):
+            corner = (corner.y, corner.x)
             self.assertTrue(np.allclose(expected_corner, corner, atol=1.0))
 
-    def test_harris_visual(self):
+    def disabled_test_harris_visual(self):
         test_image_path = Path(
             "/Users/bopra/code/structure_from_motion/data/barcelona/DSCN8238.JPG"
         )

@@ -24,11 +24,21 @@ class SsdTest(unittest.TestCase):
         self.assertFalse(is_within_bounds(feature.Feature(y=97, x=198)))
 
     def test_ssd(self):
-        image = np.array(
+        image_a = np.array(
             [
                 [1, 2, 3, 0, 0, 0],
                 [4, 5, 6, 0, 0, 0],
                 [7, 8, 9, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        )
+        image_b = np.array(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
                 [0, 0, 0, 9, 8, 7],
                 [0, 0, 0, 6, 5, 4],
                 [0, 0, 0, 3, 2, 1],
@@ -36,7 +46,7 @@ class SsdTest(unittest.TestCase):
         )
 
         calculate_ssd = lambda feature_a, feature_b: ssd.calculate_ssd(
-            image, feature_a, feature_b, window_size=3
+            image_a, image_b, feature_a, feature_b, window_size=3
         )
 
         output = calculate_ssd(feature.Feature(1, 1), feature.Feature(4, 4))

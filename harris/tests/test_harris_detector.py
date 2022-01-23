@@ -36,9 +36,7 @@ class TestHarrisDetector(unittest.TestCase):
             self.assertTrue(np.allclose(expected_corner, corner, atol=1.0))
 
     def disabled_test_harris_visual(self):
-        test_image_path = Path(
-            "/Users/bopra/code/structure_from_motion/data/barcelona/DSCN8238.JPG"
-        )
+        test_image_path = Path("data/barcelona/DSCN8238.JPG")
         self.assertTrue(test_image_path.is_file())
 
         window_name = "window"

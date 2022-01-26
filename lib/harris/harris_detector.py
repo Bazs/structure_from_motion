@@ -1,9 +1,8 @@
-from typing import List, Tuple
+from typing import List
 
-import cv2.cv2 as cv
 import numpy as np
 
-from common import correlate, feature
+from lib.common import correlate, feature
 
 _sobel_x_kernel = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=float)
 

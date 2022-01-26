@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from common import correlate
+from lib.common import correlate
 
 
 class TestCorrelate(unittest.TestCase):

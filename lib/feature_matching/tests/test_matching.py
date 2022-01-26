@@ -1,7 +1,7 @@
 import unittest
 
-from common.feature import Feature
-from feature_matching import matching
+from lib.common.feature import Feature
+from lib.feature_matching import matching
 
 
 class MatchingTest(unittest.TestCase):

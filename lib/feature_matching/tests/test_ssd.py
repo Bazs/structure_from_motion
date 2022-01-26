@@ -3,8 +3,8 @@ import unittest
 
 import numpy as np
 
-from common import feature
-import feature_matching.ssd as ssd
+from lib.common import feature
+from lib.feature_matching import ssd
 
 
 class SsdTest(unittest.TestCase):

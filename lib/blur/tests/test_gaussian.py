@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from blur import gaussian
+from lib.blur import gaussian
 
 
 class TestGaussian(unittest.TestCase):

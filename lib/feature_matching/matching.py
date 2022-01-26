@@ -3,7 +3,7 @@ import dataclasses
 
 import numpy as np
 
-from common.feature import Feature
+from lib.common.feature import Feature
 
 ErrorFunction = NewType("ErrorFunction", Callable[[Feature, Feature], float])
 
@@ -15,9 +15,9 @@ class Match:
 
 
 def match_features(
-    features_a: List[Feature],
-    features_b: List[Feature],
-    error_function: ErrorFunction,
+        features_a: List[Feature],
+        features_b: List[Feature],
+        error_function: ErrorFunction,
 ) -> List[Match]:
     """
     Matches two list features using a brute-force pairwise method.

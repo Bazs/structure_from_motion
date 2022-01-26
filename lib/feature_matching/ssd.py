@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 
-from common import feature as feat
+from lib.common import feature as feat
 
 
 def calculate_ssd(

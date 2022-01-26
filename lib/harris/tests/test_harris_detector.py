@@ -5,13 +5,9 @@ import cv2.cv2
 import cv2.cv2 as cv
 import numpy as np
 
-import sys
-
-sys.path.append("/Users/bopra/code/structure_from_motion")
-
-from common import correlate
-import blur.gaussian as gaussian
-import harris.harris_detector as harris
+from lib.blur import gaussian
+from lib.common import correlate
+from lib.harris import harris_detector as harris
 
 
 class TestHarrisDetector(unittest.TestCase):

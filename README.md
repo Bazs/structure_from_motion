@@ -1,4 +1,4 @@
-![CI](https://github.com/Bazs/structure_from_motion/actions/workflows/python-test.yml/badge.svg?branch=main)
+[![CI](https://github.com/Bazs/structure_from_motion/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/Bazs/structure_from_motion/actions)
 
 ## Structure From Motion From Scratch
 

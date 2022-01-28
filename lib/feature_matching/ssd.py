@@ -54,6 +54,6 @@ def _select_window(
 ) -> np.ndarray:
     half_window_size = int(window_size / 2)
     return image[
-        feature.y - half_window_size : feature.y + half_window_size + 1,
-        feature.x - half_window_size : feature.x + half_window_size + 1,
+        int(feature.y) - half_window_size : int(feature.y) + half_window_size + 1,
+        int(feature.x) - half_window_size : int(feature.x) + half_window_size + 1,
     ]

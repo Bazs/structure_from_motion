@@ -3,7 +3,7 @@ from typing import List, Tuple
 from pathlib import Path
 import logging
 
-import cv2 as cv
+from cv2 import cv2 as cv
 import numpy as np
 
 from lib.common import feature
@@ -36,17 +36,21 @@ def run_sfm() -> None:
     logging.info("Extracting features")
     image_1_corners = harris.detect_harris_corners(test_image_1_gray)
     _draw_features(test_image_1, image_1_corners)
-    # _show_image(test_image_1)
     image_2_corners = harris.detect_harris_corners(test_image_2_gray)
     _draw_features(test_image_2, image_2_corners)
-    # _show_image(test_image_2)
 
     logging.info("Matching features")
     ssd_error_function = _create_ssd_function(test_image_1_gray, test_image_2_gray)
     matches = matching.match_features(
         image_1_corners, image_2_corners, ssd_error_function
     )
-    print(matches)
+
+    matches, image_1_corners = _filter_matches_features(matches, 1100, image_1_corners)
+
+    match_image = _draw_matches(
+        test_image_1, test_image_2, image_1_corners, image_2_corners, matches
+    )
+    _show_image(match_image)
 
 
 def _load_image_rgb_and_gray(image_path: Path) -> Tuple[np.ndarray, np.ndarray]:
@@ -84,3 +88,47 @@ def _create_ssd_function(
         return ssd.calculate_ssd(image_a, image_b, feature_a, feature_b)
 
     return ssd_error
+
+
+def _filter_matches_features(
+    matches: List[matching.Match],
+    error_threshold: float,
+    features_a: List[feature.Feature],
+) -> Tuple[List[matching.Match], List[feature.Feature]]:
+    """Filters matches and features_a by thresholding the match error.
+
+    :param matches: List of matches.
+    :param error_threshold: The match error threshold.
+    :param features_a: The query feature list which was used in matching.
+    :return: matches and features_a, where all indices corresponding to a match
+    error above error_threshold are removed.
+    """
+    indices_to_delete = []
+    for index in range(len(matches)):
+        if matches[index].best_match_error > error_threshold:
+            indices_to_delete.append(index)
+    matches = np.delete(matches, indices_to_delete).tolist()
+    features_a = np.delete(features_a, indices_to_delete).tolist()
+    return (matches, features_a)
+
+
+def _draw_matches(
+    image_1: np.ndarray,
+    image_2: np.ndarray,
+    features_1: List[feature.Feature],
+    features_2: List[feature.Feature],
+    matches: List[matching.Match],
+) -> np.ndarray:
+    def to_cv_keypoints(features):
+        return [cv.KeyPoint(feat.x, feat.y, 1) for feat in features]
+
+    keypoints_1 = to_cv_keypoints(features_1)
+    keypoints_2 = to_cv_keypoints(features_2)
+    cv_matches = [
+        cv.DMatch(index, match.best_match_index, 0)
+        for index, match in enumerate(matches)
+    ]
+    match_image = cv.drawMatches(
+        image_1, keypoints_1, image_2, keypoints_2, cv_matches, None
+    )
+    return match_image

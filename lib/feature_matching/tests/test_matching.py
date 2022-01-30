@@ -21,7 +21,7 @@ class MatchingTest(unittest.TestCase):
         return score
 
     def test_match_features(self):
-        matches = matching.match_features(
+        matches = matching.match_brute_force(
             self.features_a,
             self.features_b,
             self._mock_matching_function,

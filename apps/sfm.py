@@ -4,6 +4,7 @@ from pathlib import Path
 import logging
 
 from cv2 import cv2 as cv
+import matplotlib.pyplot as plt
 import numpy as np
 
 from lib.common import feature
@@ -41,11 +42,22 @@ def run_sfm() -> None:
 
     logging.info("Matching features")
     ssd_error_function = _create_ssd_function(test_image_1_gray, test_image_2_gray)
-    matches = matching.match_features(
+    matches = matching.match_brute_force(
         image_1_corners, image_2_corners, ssd_error_function
     )
+    match_errors = [
+        match.best_match_error
+        for match in matches
+        if match.best_match_error != np.Infinity
+    ]
 
-    matches, image_1_corners = _filter_matches_features(matches, 1100, image_1_corners)
+    # Show a histogram of matching errors
+    fig, ax = plt.subplots(1, 1)
+    ax.hist(match_errors)
+    ax.set_title("Matching Errors")
+    fig.show()
+
+    matches, image_1_corners = _filter_matches_features(matches, 60, image_1_corners)
 
     match_image = _draw_matches(
         test_image_1, test_image_2, image_1_corners, image_2_corners, matches
@@ -85,7 +97,7 @@ def _create_ssd_function(
     image_a: np.ndarray, image_b: np.ndarray
 ) -> matching.ErrorFunction:
     def ssd_error(feature_a: feature.Feature, feature_b: feature.Feature) -> float:
-        return ssd.calculate_ssd(image_a, image_b, feature_a, feature_b)
+        return ssd.calculate_ssd(image_a, image_b, feature_a, feature_b, window_size=9)
 
     return ssd_error
 

@@ -1,2 +1,11 @@
+# JetBrains IDEs
 .idea
+
+# The dataset folder
 data/
+
+# MacOS
+.DS_Store
+
+# Python cache
+**/__pycache__/**

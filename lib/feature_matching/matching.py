@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Callable, List, NewType
 import dataclasses
+import heapq
 
 import numpy as np
 
@@ -11,8 +12,12 @@ ErrorFunction = NewType("ErrorFunction", Callable[[Feature, Feature], float])
 
 @dataclasses.dataclass(frozen=False)
 class Match:
-    best_match_index: int = -1
-    best_match_error: float = np.Infinity
+    match_index: int = -1
+    match_error: float = np.Infinity
+
+    def __lt__(self, other) -> bool:
+        """Comparison operator based on match error."""
+        return self.match_error < other.match_error
 
 
 class ValidationStrategy(Enum):
@@ -29,7 +34,9 @@ def match_brute_force(
     features_a: List[Feature],
     features_b: List[Feature],
     error_function: ErrorFunction,
+    *,
     validation_strategy: ValidationStrategy = ValidationStrategy.NONE,
+    ratio_test_threshold: float = 0.5
 ) -> List[Match]:
     """
     Matches two list features using a brute-force pairwise method.
@@ -38,18 +45,53 @@ def match_brute_force(
     :param features_b: Second list of features.
     :param error_function: An error function which returns the error of a particular match.
     :param validation_strategy: The validation strategy to use.
+    :param ratio_test_threshold: The maximum ratio between the scores of the best and second best match if
+    validation_strategy == RATIO_TEST. Matches not meeting this criterion will be set to Match().
     :return: List of matches for every feature in features_a, in the order of features_a.
     """
-    if validation_strategy != ValidationStrategy.NONE:
+    if validation_strategy == ValidationStrategy.CROSSCHECK:
         raise NotImplementedError
 
-    feature_a_matches = [Match() for _ in range(len(features_a))]
+    all_matches_for_all_features_a: List[List[Match]] = [
+        [] for _ in range(len(features_a))
+    ]
 
     for a_index, feature_a in enumerate(features_a):
         for b_index, feature_b in enumerate(features_b):
             error = error_function(feature_a, feature_b)
-            if feature_a_matches[a_index].best_match_error > error:
-                feature_a_matches[a_index].best_match_error = error
-                feature_a_matches[a_index].best_match_index = b_index
+            heapq.heappush(
+                all_matches_for_all_features_a[a_index],
+                Match(match_index=b_index, match_error=error),
+            )
 
-    return feature_a_matches
+    if validation_strategy == ValidationStrategy.NONE:
+        matches = [
+            matches_for_feature[0]
+            for matches_for_feature in all_matches_for_all_features_a
+        ]
+    elif validation_strategy == ValidationStrategy.RATIO_TEST:
+        matches = _filter_by_ratio_test(
+            all_matches_for_all_features_a, ratio_test_threshold
+        )
+
+    return matches
+
+
+def _filter_by_ratio_test(
+    all_matches_for_all_features: List[List[Match]], ratio_test_threshold: float
+) -> List[Match]:
+    matches = []
+    for all_matches_for_feature in all_matches_for_all_features:
+        if len(all_matches_for_feature) > 1:
+            if (
+                all_matches_for_feature[0].match_error
+                / all_matches_for_feature[1].match_error
+            ) <= ratio_test_threshold:
+                matches.append(all_matches_for_feature[0])
+            else:
+                matches.append(Match())
+        elif len(all_matches_for_feature) == 1:
+            matches.append(all_matches_for_feature[0])
+        else:
+            matches.append(Match())
+    return matches

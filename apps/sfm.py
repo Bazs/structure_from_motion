@@ -46,9 +46,7 @@ def run_sfm() -> None:
         image_1_corners, image_2_corners, ssd_error_function
     )
     match_errors = [
-        match.best_match_error
-        for match in matches
-        if match.best_match_error != np.Infinity
+        match.match_error for match in matches if match.match_error != np.Infinity
     ]
 
     # Show a histogram of matching errors
@@ -117,7 +115,7 @@ def _filter_matches_features(
     """
     indices_to_delete = []
     for index in range(len(matches)):
-        if matches[index].best_match_error > error_threshold:
+        if matches[index].match_error > error_threshold:
             indices_to_delete.append(index)
     matches = np.delete(matches, indices_to_delete).tolist()
     features_a = np.delete(features_a, indices_to_delete).tolist()
@@ -137,8 +135,7 @@ def _draw_matches(
     keypoints_1 = to_cv_keypoints(features_1)
     keypoints_2 = to_cv_keypoints(features_2)
     cv_matches = [
-        cv.DMatch(index, match.best_match_index, 0)
-        for index, match in enumerate(matches)
+        cv.DMatch(index, match.match_index, 0) for index, match in enumerate(matches)
     ]
     match_image = cv.drawMatches(
         image_1, keypoints_1, image_2, keypoints_2, cv_matches, None

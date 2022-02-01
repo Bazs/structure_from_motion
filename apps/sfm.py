@@ -35,15 +35,24 @@ def run_sfm() -> None:
     )
 
     logging.info("Extracting features")
-    image_1_corners = harris.detect_harris_corners(test_image_1_gray)
+    num_corners = 100
+    image_1_corners = harris.detect_harris_corners(
+        test_image_1_gray, num_corners=num_corners
+    )
     _draw_features(test_image_1, image_1_corners)
-    image_2_corners = harris.detect_harris_corners(test_image_2_gray)
+    image_2_corners = harris.detect_harris_corners(
+        test_image_2_gray, num_corners=num_corners
+    )
     _draw_features(test_image_2, image_2_corners)
 
     logging.info("Matching features")
     ssd_error_function = _create_ssd_function(test_image_1_gray, test_image_2_gray)
     matches = matching.match_brute_force(
-        image_1_corners, image_2_corners, ssd_error_function
+        image_1_corners,
+        image_2_corners,
+        ssd_error_function,
+        validation_strategy=matching.ValidationStrategy.RATIO_TEST,
+        ratio_test_threshold=0.8,
     )
     match_errors = [
         match.match_error for match in matches if match.match_error != np.Infinity

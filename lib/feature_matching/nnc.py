@@ -34,6 +34,9 @@ def calculate_nnc(
         np.sum(np.square(window_a_shifted)) * np.sum(np.square(window_b_shifted))
     )
 
+    if denominator == 0:
+        return -1.0
+
     nnc = numerator / denominator
     assert -1.0 <= nnc <= 1.0
     return nnc

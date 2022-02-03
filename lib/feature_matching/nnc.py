@@ -38,8 +38,6 @@ def calculate_nnc(
         return -1.0
 
     nnc = numerator / denominator
-    if not -1.0 <= nnc <= 1.0:
-        print(f"Out of bounds: {nnc}")
-        assert False
-    # assert -1.0 <= nnc <= 1.0
+    tolerance = 1e-8
+    assert -1.0 - tolerance <= nnc <= 1.0 + tolerance
     return nnc

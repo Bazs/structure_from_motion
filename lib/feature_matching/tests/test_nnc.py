@@ -23,14 +23,14 @@ class TestNnc(unittest.TestCase):
         score = nnc.calculate_nnc(
             self.image_a, image_b, Feature(2, 2), Feature(2, 2), 5
         )
-        self.assertEqual(1.0, score)
+        np.testing.assert_allclose(1.0, score)
 
     def test_nnc_worst_match(self):
         image_b = -np.copy(self.image_a)
         score = nnc.calculate_nnc(
             self.image_a, image_b, Feature(2, 2), Feature(2, 2), 5
         )
-        self.assertEqual(-1.0, score)
+        np.testing.assert_allclose(-1.0, score)
 
     def test_random_inputs(self):
         num_tests = 100
@@ -47,8 +47,9 @@ class TestNnc(unittest.TestCase):
             score = nnc.calculate_nnc(
                 image_a, image_b, Feature(2, 2), Feature(2, 2), window_size
             )
-            self.assertGreaterEqual(score, -1.0)
-            self.assertLess(score, 1.0)
+            tolerance = 1e-8
+            self.assertGreaterEqual(score, -1.0 - tolerance)
+            self.assertLess(score, 1.0 + tolerance)
 
 
 if __name__ == "__main__":

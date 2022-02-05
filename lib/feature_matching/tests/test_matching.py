@@ -10,7 +10,7 @@ class MatchingTest(unittest.TestCase):
         features_b = [Feature(4, 4), Feature(5, 5), Feature(6, 6), Feature(7, 7)]
 
         def _mock_matching_function(feature_a: Feature, feature_b: Feature):
-            # Dict of {feature_a_index: {if_matched_with_feature_b_index: error}}
+            # Dict of {feature_a_index: {if_matched_with_feature_b_index: score}}
             feature_a_match_map = {
                 0: {0: 10, 1: 20, 2: 30, 3: 7},
                 1: {0: 30, 1: 9, 2: 20, 3: 15},
@@ -26,9 +26,9 @@ class MatchingTest(unittest.TestCase):
             _mock_matching_function,
         )
         expected_matches = [
-            matching.Match(match_index=3, match_error=7),
-            matching.Match(match_index=1, match_error=9),
-            matching.Match(match_index=2, match_error=8),
+            matching.Match(match_index=3, match_score=7),
+            matching.Match(match_index=1, match_score=9),
+            matching.Match(match_index=2, match_score=8),
         ]
         self.assertEqual(expected_matches, matches)
 
@@ -37,7 +37,7 @@ class MatchingTest(unittest.TestCase):
         features_b = [Feature(3, 3), Feature(4, 4), Feature(5, 5)]
 
         def _mock_matching_function(feature_a: Feature, feature_b: Feature):
-            # Dict of {feature_a_index: {if_matched_with_feature_b_index: error}}
+            # Dict of {feature_a_index: {if_matched_with_feature_b_index: score}}
             feature_a_match_map = {
                 0: {0: 10, 1: 5, 2: 20},  # Ratio is exactly 0.5, the threshold
                 1: {0: 10, 1: 6, 2: 7},  # Ratio is above 0.5

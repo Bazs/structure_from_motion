@@ -7,17 +7,17 @@ import numpy as np
 
 from lib.common.feature import Feature
 
-ErrorFunction = NewType("ErrorFunction", Callable[[Feature, Feature], float])
+ScoreFunction = NewType("ScoreFunction", Callable[[Feature, Feature], float])
 
 
-@dataclasses.dataclass(frozen=False)
+@dataclasses.dataclass
 class Match:
     match_index: int = -1
-    match_error: float = np.Infinity
+    match_score: float = np.Infinity
 
     def __lt__(self, other) -> bool:
-        """Comparison operator based on match error."""
-        return self.match_error < other.match_error
+        """Comparison operator based on match score."""
+        return self.match_score < other.match_score
 
 
 class ValidationStrategy(Enum):
@@ -33,7 +33,7 @@ class ValidationStrategy(Enum):
 def match_brute_force(
     features_a: List[Feature],
     features_b: List[Feature],
-    error_function: ErrorFunction,
+    score_function: ScoreFunction,
     *,
     validation_strategy: ValidationStrategy = ValidationStrategy.NONE,
     ratio_test_threshold: float = 0.5
@@ -43,7 +43,7 @@ def match_brute_force(
 
     :param features_a: First list of features.
     :param features_b: Second list of features.
-    :param error_function: An error function which returns the error of a particular match.
+    :param score_function: A score function which returns the score of a particular match.
     :param validation_strategy: The validation strategy to use.
     :param ratio_test_threshold: The maximum ratio between the scores of the best and second best match if
     validation_strategy == RATIO_TEST. Matches not meeting this criterion will be set to Match().
@@ -58,10 +58,10 @@ def match_brute_force(
 
     for a_index, feature_a in enumerate(features_a):
         for b_index, feature_b in enumerate(features_b):
-            error = error_function(feature_a, feature_b)
+            score = score_function(feature_a, feature_b)
             heapq.heappush(
                 all_matches_for_all_features_a[a_index],
-                Match(match_index=b_index, match_error=error),
+                Match(match_index=b_index, match_score=score),
             )
 
     if validation_strategy == ValidationStrategy.NONE:
@@ -84,8 +84,8 @@ def _filter_by_ratio_test(
     for all_matches_for_feature in all_matches_for_all_features:
         if len(all_matches_for_feature) > 1:
             if (
-                all_matches_for_feature[0].match_error
-                / all_matches_for_feature[1].match_error
+                all_matches_for_feature[0].match_score
+                / all_matches_for_feature[1].match_score
             ) <= ratio_test_threshold:
                 matches.append(all_matches_for_feature[0])
             else:

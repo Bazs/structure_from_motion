@@ -1,4 +1,3 @@
-from functools import partial
 import unittest
 
 import numpy as np
@@ -31,12 +30,16 @@ class SsdTest(unittest.TestCase):
         )
 
         window_size = 3
-        calculate_ssd = lambda feature_a, feature_b: ssd.calculate_ssd(
-            image_a, image_b, feature_a, feature_b, window_size=window_size
-        )
+
+        def calculate_ssd(feature_a, feature_b):
+            return ssd.calculate_ssd(
+                image_a, image_b, feature_a, feature_b, window_size=window_size
+            )
 
         output = calculate_ssd(feature.Feature(1, 1), feature.Feature(4, 4))
-        sq = lambda x: x ** 2
+
+        def sq(x):
+            return x ** 2
 
         self.assertEqual(
             (sq(8) + sq(6) + sq(4) + sq(2) + sq(0) + sq(2) + sq(4) + sq(6) + sq(8))

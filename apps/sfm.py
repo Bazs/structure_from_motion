@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 from pathlib import Path
 import logging
@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from lib.common import feature
-from lib.feature_matching import matching, ssd
+from lib.feature_matching import matching, nnc
 from lib.harris import harris_detector as harris
 
 _WINDOW_NAME = "SfM"
@@ -46,13 +46,15 @@ def run_sfm() -> None:
     _draw_features(test_image_2, image_2_corners)
 
     logging.info("Matching features")
-    ssd_score_function = _create_score_function(test_image_1_gray, test_image_2_gray)
+    ssd_score_function = _create_score_function(
+        test_image_1_gray, test_image_2_gray, nnc.calculate_nnc
+    )
     matches = matching.match_brute_force(
         image_1_corners,
         image_2_corners,
         ssd_score_function,
         validation_strategy=matching.ValidationStrategy.RATIO_TEST,
-        ratio_test_threshold=0.8,
+        ratio_test_threshold=0.65,
     )
     match_scores = [
         match.match_score for match in matches if match.match_score != np.Infinity
@@ -64,7 +66,7 @@ def run_sfm() -> None:
     ax.set_title("Matching Scores")
     fig.show()
 
-    matches, image_1_corners = _filter_matches_features(matches, 60, image_1_corners)
+    matches, image_1_corners = _filter_matches_features(matches, 0.2, image_1_corners)
 
     match_image = _draw_matches(
         test_image_1, test_image_2, image_1_corners, image_2_corners, matches
@@ -90,8 +92,8 @@ def _downscale_image(image: np.ndarray) -> np.ndarray:
 
 
 def _draw_features(image: np.ndarray, features: List[feature.Feature]) -> None:
-    for feature in features:
-        center = [int(feature.x), int(feature.y)]
+    for feat in features:
+        center = [int(feat.x), int(feat.y)]
         image = cv.circle(image, center, radius=1, color=(255, 0, 0), thickness=-1)
 
 
@@ -101,10 +103,14 @@ def _show_image(image: np.ndarray) -> None:
 
 
 def _create_score_function(
-    image_a: np.ndarray, image_b: np.ndarray
+    image_a: np.ndarray,
+    image_b: np.ndarray,
+    full_score_function: Callable[
+        [np.ndarray, np.ndarray, feature.Feature, feature.Feature, int], float
+    ],
 ) -> matching.ScoreFunction:
     def ssd_score(feature_a: feature.Feature, feature_b: feature.Feature) -> float:
-        return ssd.calculate_ssd(image_a, image_b, feature_a, feature_b, window_size=9)
+        return full_score_function(image_a, image_b, feature_a, feature_b, 9)
 
     return ssd_score
 

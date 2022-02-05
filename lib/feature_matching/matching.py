@@ -7,12 +7,14 @@ import numpy as np
 
 from lib.common.feature import Feature
 
+# Interface definition of a matching function.
 ScoreFunction = NewType("ScoreFunction", Callable[[Feature, Feature], float])
 
 
 @dataclasses.dataclass
 class Match:
     match_index: int = -1
+    # A lower score indicates a better match in all cases.
     match_score: float = np.Infinity
 
     def __lt__(self, other) -> bool:

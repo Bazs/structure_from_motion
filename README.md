@@ -1,4 +1,5 @@
 [![CI](https://github.com/Bazs/structure_from_motion/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/Bazs/structure_from_motion/actions)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## Structure From Motion From Scratch
 

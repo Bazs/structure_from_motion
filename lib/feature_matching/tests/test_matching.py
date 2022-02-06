@@ -26,9 +26,9 @@ class MatchingTest(unittest.TestCase):
             _mock_matching_function,
         )
         expected_matches = [
-            matching.Match(match_index=3, match_score=7),
-            matching.Match(match_index=1, match_score=9),
-            matching.Match(match_index=2, match_score=8),
+            matching.Match(a_index=0, b_index=3, match_score=7),
+            matching.Match(a_index=1, b_index=1, match_score=9),
+            matching.Match(a_index=2, b_index=2, match_score=8),
         ]
         self.assertEqual(expected_matches, matches)
 
@@ -54,5 +54,5 @@ class MatchingTest(unittest.TestCase):
             ratio_test_threshold=0.5,
         )
 
-        expected_matches = [matching.Match(1, 5.0), matching.Match()]
+        expected_matches = [matching.Match(0, 1, 5.0), matching.Match()]
         self.assertEqual(expected_matches, matches)

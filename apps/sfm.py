@@ -66,7 +66,7 @@ def run_sfm() -> None:
     ax.set_title("Matching Scores")
     fig.show()
 
-    matches, image_1_corners = _filter_matches_features(matches, 0.2, image_1_corners)
+    matches = _filter_matches(matches, 0.2)
 
     match_image = _draw_matches(
         test_image_1, test_image_2, image_1_corners, image_2_corners, matches
@@ -115,26 +115,22 @@ def _create_score_function(
     return ssd_score
 
 
-def _filter_matches_features(
+def _filter_matches(
     matches: List[matching.Match],
     score_threshold: float,
-    features_a: List[feature.Feature],
-) -> Tuple[List[matching.Match], List[feature.Feature]]:
-    """Filters matches and features_a by thresholding the match score.
+) -> List[matching.Match]:
+    """Filters matches by thresholding the match score.
 
     :param matches: List of matches.
     :param score_threshold: The match score threshold.
-    :param features_a: The query feature list which was used in matching.
-    :return: matches and features_a, where all indices corresponding to a match
-    score above score_threshold are removed.
+    :return: matches where indices corresponding to a match score above score_threshold are removed.
     """
     indices_to_delete = []
     for index in range(len(matches)):
         if matches[index].match_score > score_threshold:
             indices_to_delete.append(index)
     matches = np.delete(matches, indices_to_delete).tolist()
-    features_a = np.delete(features_a, indices_to_delete).tolist()
-    return (matches, features_a)
+    return matches
 
 
 def _draw_matches(
@@ -149,10 +145,9 @@ def _draw_matches(
 
     keypoints_1 = to_cv_keypoints(features_1)
     keypoints_2 = to_cv_keypoints(features_2)
-    cv_matches = [
-        cv.DMatch(index, match.match_index, 0) for index, match in enumerate(matches)
-    ]
+    cv_matches = [cv.DMatch(match.a_index, match.b_index, 0) for match in matches]
     match_image = cv.drawMatches(
         image_1, keypoints_1, image_2, keypoints_2, cv_matches, None
     )
+
     return match_image

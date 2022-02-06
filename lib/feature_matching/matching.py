@@ -13,7 +13,8 @@ ScoreFunction = NewType("ScoreFunction", Callable[[Feature, Feature], float])
 
 @dataclasses.dataclass
 class Match:
-    match_index: int = -1
+    a_index: int = -1
+    b_index: int = -1
     # A lower score indicates a better match in all cases.
     match_score: float = np.Infinity
 
@@ -63,7 +64,7 @@ def match_brute_force(
             score = score_function(feature_a, feature_b)
             heapq.heappush(
                 all_matches_for_all_features_a[a_index],
-                Match(match_index=b_index, match_score=score),
+                Match(a_index=a_index, b_index=b_index, match_score=score),
             )
 
     if validation_strategy == ValidationStrategy.NONE:

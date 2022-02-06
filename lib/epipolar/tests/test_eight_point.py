@@ -28,6 +28,29 @@ class EightPointTest(unittest.TestCase):
         )
         np.testing.assert_allclose(expected_coords_b, coords_b)
 
+    def test_get_y_col(self):
+        coord_a = np.array([2.0, 3.0])
+        coord_b = np.array([7.0, 6.0])
+
+        y_col = eight_point._get_y_col(coord_a, coord_b)
+        self.assertEqual((9, 1), y_col.shape)
+
+        expected_y_col = np.array(
+            [
+                [7.0 * 2.0],
+                [7.0 * 3.0],
+                [7.0],
+                [6.0 * 2.0],
+                [6.0 * 3.0],
+                [6.0],
+                [2.0],
+                [3.0],
+                [1.0],
+            ]
+        )
+
+        np.testing.assert_allclose(expected_y_col, y_col)
+
 
 if __name__ == "__main__":
     unittest.main()

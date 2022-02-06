@@ -1,4 +1,5 @@
 from typing import List, Tuple
+import logging
 
 import numpy as np
 
@@ -24,9 +25,16 @@ def estimate_essential_mat(
     """
     if 8 != len(matches):
         raise ValueError("Exactly eight matches are needed")
+
     coords_a, coords_b = _get_normalized_match_coordinates(
         features_a, features_b, matches, image_size
     )
+
+    y = _get_y_mat(coords_a, coords_b)
+    e_est = _compute_e_est(y)
+    e = _enforce_essential_mat_constraints(e_est)
+
+    return e
 
 
 def _get_normalized_match_coordinates(
@@ -66,3 +74,68 @@ def _get_normalized_match_coordinates(
         coords_b[index, :] = coord_b
 
     return coords_a, coords_b
+
+
+def _get_y_mat(coords_a: np.ndarray, coords_b: np.ndarray):
+    assert len(coords_a) == len(coords_b) == 8
+
+    y = np.empty((9, 8), dtype=float)
+
+    for col_idx in range(len(coords_a)):
+        y[:, col_idx] = _get_y_col(coords_a[col_idx, :], coords_b[col_idx, :])
+
+    return y
+
+
+def _get_y_col(coord_a: np.ndarray, coord_b: np.ndarray):
+    assert 2 == len(coord_a)
+    assert 2 == len(coord_b)
+
+    y_col = np.empty((9, 1), dtype=float)
+    y_col[0, 0] = coord_b[0] * coord_a[0]
+    y_col[1, 0] = coord_b[0] * coord_a[1]
+    y_col[2, 0] = coord_b[0]
+    y_col[3, 0] = coord_b[1] * coord_a[0]
+    y_col[4, 0] = coord_b[1] * coord_a[1]
+    y_col[5, 0] = coord_b[1]
+    y_col[6, 0] = coord_a[0]
+    y_col[7, 0] = coord_a[1]
+    y_col[8, 0] = 1.0
+
+    return y_col
+
+
+def _compute_e_est(y: np.ndarray) -> np.ndarray:
+    """
+    Estimates the essential matrix from the Y matrix.
+    (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_2:_Solving_the_equation)
+
+    @param y The Y matrix, constructed from eight matching normalized coordinate pairs.
+    @return An estimate of the Essential matrix, not necessarily of rank 2.
+    """
+    assert (9, 8) == y.shape
+
+    u, s, vh = np.linalg.svd(y)
+
+    # The solution is the left-singular vector of Y corresponding to the smallest singular value
+    e_est_vec = u[:, -1]
+    assert (9, 1) == e_est_vec.shape
+    e_est = e_est_vec.reshape((3, 3))
+
+    return e_est
+
+
+def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
+    """
+    Creates E' from the estimated E matrix, enforcing that rank(E') == 2.
+    (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_3:_Enforcing_the_internal_constraint)
+
+    @param e_est Estimated Essential matrix.
+    @return Essential matrix fulfilling the internal constraints.
+    """
+    u, s, vh = np.linalg.svd(e_est)
+    logging.debug(f"Singular values of E_est: {s}")
+    # Set the smallest singular value of E_est to 0
+    s_prime = np.eye(3, dtype=float) * np.array([s[0], s[1], 0.0])
+    e = u @ s_prime @ vh
+    return e

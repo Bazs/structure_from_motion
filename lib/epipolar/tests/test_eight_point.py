@@ -1,5 +1,6 @@
 import unittest
 
+from scipy.spatial.transform import Rotation
 import numpy as np
 
 from lib.common.feature import Feature
@@ -50,6 +51,32 @@ class EightPointTest(unittest.TestCase):
         )
 
         np.testing.assert_allclose(expected_y_col, y_col)
+
+    def test_estimate_essential_matrix(self):
+        rectangle_width = np.array([1.0, 0.0, 0.0])
+        rectangle_height = np.array([0.0, 0.5, 0.0])
+        rectangle_origin = np.zeros((3,), dtype=float)
+
+        rectangle_a = np.array(
+            [
+                rectangle_origin,
+                rectangle_origin + rectangle_width,
+                rectangle_origin + rectangle_width + rectangle_height,
+                rectangle_origin + rectangle_height,
+            ]
+        )
+
+        rectangle_b = rectangle_a.copy()
+        rectangle_b_offset = np.array([2.0, 0.0, 0.0])
+        rectangle_b += rectangle_b_offset
+
+        rect_a_rot = Rotation.from_euler("y", 45.0, degrees=True)
+        rectangle_a = rect_a_rot.apply(rectangle_a)
+
+        rect_b_rot = Rotation.from_euler("y", -45.0, degrees=True)
+        rectangle_b = rect_b_rot.apply(rectangle_b)
+
+        # TODO define camera poses and do projection
 
 
 if __name__ == "__main__":

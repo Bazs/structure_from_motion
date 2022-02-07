@@ -1,3 +1,4 @@
 numpy==1.21.2
 # For the CI, install headless OpenCV, otherwise it conflicts with the GHA runner's setup
 opencv-python-headless==4.5.5.62
+scipy==1.7.1

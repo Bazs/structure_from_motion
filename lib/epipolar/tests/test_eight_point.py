@@ -1,6 +1,7 @@
 import unittest
 
 from scipy.spatial.transform import Rotation
+import matplotlib.pyplot as plt
 import numpy as np
 
 from lib.common.feature import Feature
@@ -57,7 +58,7 @@ class EightPointTest(unittest.TestCase):
         rectangle_height = np.array([0.0, 0.5, 0.0])
         rectangle_origin = np.zeros((3,), dtype=float)
 
-        rectangle_a = np.array(
+        world_t_world_rectangle_a = np.array(
             [
                 rectangle_origin,
                 rectangle_origin + rectangle_width,
@@ -66,17 +67,34 @@ class EightPointTest(unittest.TestCase):
             ]
         )
 
-        rectangle_b = rectangle_a.copy()
-        rectangle_b_offset = np.array([2.0, 0.0, 0.0])
-        rectangle_b += rectangle_b_offset
+        world_t_world_rectangle_b = world_t_world_rectangle_a.copy()
+        world_t_world_rectangleBOffset = np.array([2.0, 0.0, 0.0])
+        world_t_world_rectangle_b += world_t_world_rectangleBOffset
 
-        rect_a_rot = Rotation.from_euler("y", 45.0, degrees=True)
-        rectangle_a = rect_a_rot.apply(rectangle_a)
+        rect_a_rot = Rotation.from_euler("y", 20.0, degrees=True)
+        world_t_world_rectangle_a = rect_a_rot.apply(world_t_world_rectangle_a)
 
-        rect_b_rot = Rotation.from_euler("y", -45.0, degrees=True)
-        rectangle_b = rect_b_rot.apply(rectangle_b)
+        rect_b_rot = Rotation.from_euler("y", -20.0, degrees=True)
+        world_t_world_rectangle_b = rect_b_rot.apply(world_t_world_rectangle_b)
 
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        self._plot_rectangle(ax, world_t_world_rectangle_a)
+        self._plot_rectangle(ax, world_t_world_rectangle_b)
+        # plt.show()
         # TODO define camera poses and do projection
+
+    @staticmethod
+    def _rotate_rectangle(world_t_world_rectangle: np.ndarray, rotation: Rotation):
+        # TODO transform rectangle the world origin before rotation
+        pass
+
+    @staticmethod
+    def _plot_rectangle(ax: plt.axes, rectangle: np.ndarray):
+        xs = np.append(rectangle[:, 0], rectangle[0, 0])
+        ys = np.append(rectangle[:, 1], rectangle[0, 1])
+        zs = np.append(rectangle[:, 2], rectangle[0, 2])
+        ax.plot(xs, ys, zs, zdir="y")
 
 
 if __name__ == "__main__":

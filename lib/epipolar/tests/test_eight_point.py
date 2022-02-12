@@ -83,17 +83,54 @@ class EightPointTest(unittest.TestCase):
         )
 
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-        self._plot_rectangle(ax, world_t_world_rectangle_a)
-        self._plot_rectangle(ax, world_t_world_rectangle_b)
+        ax_3d = fig.add_subplot(131, projection="3d")
+        self._plot_rectangle(ax_3d, world_t_world_rectangle_a)
+        self._plot_rectangle(ax_3d, world_t_world_rectangle_b)
 
-        world_t_world_camera_1 = np.array([1.5, 0.25, -1.0])
-        camera_R_world = np.eye(3, dtype=float)
-        camera_Rvec_world = cv.Rodrigues(camera_R_world)
-        (camera_Rvec_world)
+        world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
+        # TODO the orientation needs to be adjusted
+        camera1_Rmat_world = np.eye(3, dtype=float)
+        camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
 
-        self._plot_camera(ax, world_t_world_camera_1, camera_R_world)
+        world_t_world_camera2 = np.array([2.5, 0.1, -1.5])
+        camera2_R_world = Rotation.from_euler("XY", [-3.0, -3.0], degrees=True)
+        camera2_Rmat_world = camera2_R_world.as_matrix()
+        camera2_Rvec_world, _ = cv.Rodrigues(camera2_Rmat_world)
 
+        self._plot_camera(ax_3d, world_t_world_camera1, camera1_Rmat_world)
+        self._plot_camera(ax_3d, world_t_world_camera2, camera2_Rmat_world)
+
+        cam_width_px = 512
+        cam_height_px = 256
+
+        # Calculate the focal length in pixel values, so that the angle of view is 150 degrees
+        fov_deg = 150
+        base_angle_deg = (180 - fov_deg) / 2.0
+        base_angle_rad = np.radians(base_angle_deg)
+        f_x = np.tan(base_angle_rad) * cam_width_px / 2
+        f_y = np.tan(base_angle_rad) * cam_height_px / 2
+        # Choose the smallest focal length to ensure a minimum of 150 deg FOV with a
+        # square pixel size
+        f = min(f_x, f_y)
+
+        # Build the camera intrinsic matrix
+        K = np.array(
+            [
+                [f, 0.0, cam_width_px / 2.0],
+                [0.0, f, cam_height_px / 2.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+
+        world_t_world_allPoints = np.vstack(
+            [world_t_world_rectangle_a, world_t_world_rectangle_b]
+        )
+
+        cam1_points, _ = cv.projectPoints(
+            world_t_world_allPoints, camera2_Rvec_world, world_t_world_camera1, K, None
+        )
+        cam1_ax = fig.add_subplot(132)
+        cam1_ax.scatter(cam1_points[:, 0], cam1_points[:, 0])
         # plt.show()
 
     @staticmethod

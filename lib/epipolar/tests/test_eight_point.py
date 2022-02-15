@@ -72,12 +72,12 @@ class EightPointTest(unittest.TestCase):
         world_t_world_rectangleBOffset = np.array([2.0, 0.0, 0.0])
         world_t_world_rectangle_b += world_t_world_rectangleBOffset
 
-        rect_a_rot = Rotation.from_euler("y", -30.0, degrees=True)
+        rect_a_rot = Rotation.from_euler("y", -40.0, degrees=True)
         world_t_world_rectangle_a = self._rotate_rectangle(
             world_t_world_rectangle_a, rect_a_rot
         )
 
-        rect_b_rot = Rotation.from_euler("y", 30.0, degrees=True)
+        rect_b_rot = Rotation.from_euler("y", 40.0, degrees=True)
         world_t_world_rectangle_b = self._rotate_rectangle(
             world_t_world_rectangle_b, rect_b_rot
         )
@@ -93,7 +93,7 @@ class EightPointTest(unittest.TestCase):
         camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
 
         world_t_world_camera2 = np.array([2.5, 0.1, -1.5])
-        camera2_R_world = Rotation.from_euler("XY", [-3.0, -3.0], degrees=True)
+        camera2_R_world = Rotation.from_euler("XY", [-20.0, -50.0], degrees=True)
         camera2_Rmat_world = camera2_R_world.as_matrix()
         camera2_Rvec_world, _ = cv.Rodrigues(camera2_Rmat_world)
 
@@ -103,13 +103,13 @@ class EightPointTest(unittest.TestCase):
         cam_width_px = 512
         cam_height_px = 256
 
-        # Calculate the focal length in pixel values, so that the angle of view is 150 degrees
-        fov_deg = 150
+        # Calculate the focal length in pixel values, so that the angle of view is guaranteed
+        fov_deg = 100
         base_angle_deg = (180 - fov_deg) / 2.0
         base_angle_rad = np.radians(base_angle_deg)
         f_x = np.tan(base_angle_rad) * cam_width_px / 2
         f_y = np.tan(base_angle_rad) * cam_height_px / 2
-        # Choose the smallest focal length to ensure a minimum of 150 deg FOV with a
+        # Choose the smallest focal length to ensure a minimum of guaranteed deg FOV with a
         # square pixel size
         f = min(f_x, f_y)
 
@@ -127,15 +127,23 @@ class EightPointTest(unittest.TestCase):
         )
 
         cam1_points, _ = cv.projectPoints(
-            world_t_world_allPoints, camera2_Rvec_world, world_t_world_camera1, K, None
+            world_t_world_allPoints, camera1_Rvec_world, -world_t_world_camera1, K, None
         )
+        cam1_points = cam1_points.squeeze()
         cam1_ax = fig.add_subplot(132)
-        cam1_ax.scatter(cam1_points[:, 0], cam1_points[:, 0])
-        # plt.show()
+        self._plot_camera_points(cam1_ax, cam1_points, cam_width_px, cam_height_px)
+
+        cam2_points, _ = cv.projectPoints(
+            world_t_world_allPoints, camera2_Rvec_world, -world_t_world_camera2, K, None
+        )
+        cam2_points = cam2_points.squeeze()
+        cam2_ax = fig.add_subplot(133)
+        self._plot_camera_points(cam2_ax, cam2_points, cam_width_px, cam_height_px)
+        plt.show()
 
     @staticmethod
     def _rotate_rectangle(
-        world_t_world_rectangle: np.ndarray, rotation: Rotation
+            world_t_world_rectangle: np.ndarray, rotation: Rotation
     ) -> np.ndarray:
         centroid = np.mean(world_t_world_rectangle, axis=0)
         rectangle_t_rectangle_rectangle = world_t_world_rectangle - centroid
@@ -154,7 +162,7 @@ class EightPointTest(unittest.TestCase):
 
     @staticmethod
     def _plot_camera(
-        ax: plt.axes, world_t_world_camera: np.ndarray, camera_R_world: np.ndarray
+            ax: plt.axes, world_t_world_camera: np.ndarray, camera_R_world: np.ndarray
     ) -> None:
         ax.scatter(
             world_t_world_camera[0], world_t_world_camera[1], world_t_world_camera[2]
@@ -170,6 +178,15 @@ class EightPointTest(unittest.TestCase):
         zs = np.array([world_t_world_camera[2], arrow_end[2]])
 
         ax.plot(xs, ys, zs)
+
+    @staticmethod
+    def _plot_camera_points(
+            ax: plt.axes, camera_points: np.ndarray, cam_width: int, cam_height: int
+    ):
+        ax.plot(camera_points[:, 0], camera_points[:, 1])
+        ax.set_xlim(0, cam_width)
+        ax.set_ylim(0, cam_height)
+        ax.set_aspect("equal")
 
 
 if __name__ == "__main__":

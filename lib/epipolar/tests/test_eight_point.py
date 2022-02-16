@@ -36,19 +36,19 @@ class EightPointTest(unittest.TestCase):
         coord_b = np.array([7.0, 6.0])
 
         y_col = eight_point._get_y_col(coord_a, coord_b)
-        self.assertEqual((9, 1), y_col.shape)
+        self.assertEqual((9,), y_col.shape)
 
         expected_y_col = np.array(
             [
-                [7.0 * 2.0],
-                [7.0 * 3.0],
-                [7.0],
-                [6.0 * 2.0],
-                [6.0 * 3.0],
-                [6.0],
-                [2.0],
-                [3.0],
-                [1.0],
+                7.0 * 2.0,
+                7.0 * 3.0,
+                7.0,
+                6.0 * 2.0,
+                6.0 * 3.0,
+                6.0,
+                2.0,
+                3.0,
+                1.0,
             ]
         )
 
@@ -140,6 +140,25 @@ class EightPointTest(unittest.TestCase):
         cam2_ax = fig.add_subplot(133)
         self._plot_camera_points(cam2_ax, cam2_points, cam_width_px, cam_height_px)
         # plt.show()
+
+        features_1 = [Feature(x=point[0], y=point[1]) for point in cam1_points]
+        features_2 = [Feature(x=point[0], y=point[1]) for point in cam2_points]
+        matches = [
+            Match(a_index=index, b_index=index, match_score=0.0)
+            for index in range(len(features_1))
+        ]
+
+        E = eight_point.estimate_essential_mat(
+            features_1,
+            features_2,
+            matches,
+            (
+                cam_height_px,
+                cam_width_px,
+            ),
+        )
+        (E)
+        # TODO decompose E and validate
 
     @staticmethod
     def _rotate_rectangle(

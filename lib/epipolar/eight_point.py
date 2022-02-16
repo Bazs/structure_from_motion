@@ -91,16 +91,16 @@ def _get_y_col(coord_a: np.ndarray, coord_b: np.ndarray):
     assert 2 == len(coord_a)
     assert 2 == len(coord_b)
 
-    y_col = np.empty((9, 1), dtype=float)
-    y_col[0, 0] = coord_b[0] * coord_a[0]
-    y_col[1, 0] = coord_b[0] * coord_a[1]
-    y_col[2, 0] = coord_b[0]
-    y_col[3, 0] = coord_b[1] * coord_a[0]
-    y_col[4, 0] = coord_b[1] * coord_a[1]
-    y_col[5, 0] = coord_b[1]
-    y_col[6, 0] = coord_a[0]
-    y_col[7, 0] = coord_a[1]
-    y_col[8, 0] = 1.0
+    y_col = np.empty((9,), dtype=float)
+    y_col[0] = coord_b[0] * coord_a[0]
+    y_col[1] = coord_b[0] * coord_a[1]
+    y_col[2] = coord_b[0]
+    y_col[3] = coord_b[1] * coord_a[0]
+    y_col[4] = coord_b[1] * coord_a[1]
+    y_col[5] = coord_b[1]
+    y_col[6] = coord_a[0]
+    y_col[7] = coord_a[1]
+    y_col[8] = 1.0
 
     return y_col
 
@@ -119,7 +119,7 @@ def _compute_e_est(y: np.ndarray) -> np.ndarray:
 
     # The solution is the left-singular vector of Y corresponding to the smallest singular value
     e_est_vec = u[:, -1]
-    assert (9, 1) == e_est_vec.shape
+    assert (9,) == e_est_vec.shape
     e_est = e_est_vec.reshape((3, 3))
 
     return e_est

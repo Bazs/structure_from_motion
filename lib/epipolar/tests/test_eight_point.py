@@ -88,7 +88,6 @@ class EightPointTest(unittest.TestCase):
         self._plot_rectangle(ax_3d, world_t_world_rectangle_b)
 
         world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
-        # TODO the orientation needs to be adjusted
         camera1_Rmat_world = np.eye(3, dtype=float)
         camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
 

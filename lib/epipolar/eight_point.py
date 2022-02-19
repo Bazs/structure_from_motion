@@ -45,6 +45,8 @@ def _get_normalized_match_coordinates(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Returns the matching feature coordinates normalized to [-1 1].
 
+    The aspect ratio of coordinates is kept, the larger extent being normalized to [-1, 1].
+
     @param features_a List of features from the first image.
     @param features_b List of features from the second image.
     @param matches N matches between features_a and features_b.
@@ -56,21 +58,23 @@ def _get_normalized_match_coordinates(
     coords_a = np.empty((len(matches), 2), dtype=float)
     coords_b = np.empty((len(matches), 2), dtype=float)
 
-    def get_normalized_coord(feature: Feature, imsize: Tuple[int, int]) -> np.ndarray:
+    normalizer = np.max(image_size)
+
+    def get_normalized_coord(feature: Feature) -> np.ndarray:
         """Returns the feature's coordinates normalized to the [-1 1] range."""
-        assert 0 <= feature.x <= imsize[1]
-        assert 0 <= feature.y <= imsize[0]
-        coord = np.array([feature.x / imsize[1], feature.y / imsize[0]])
+        assert 0 <= feature.x <= image_size[1]
+        assert 0 <= feature.y <= image_size[0]
+        coord = np.array([feature.x / normalizer, feature.y / normalizer])
         coord *= 2.0
         coord -= 1.0
         return coord
 
     for index, match in enumerate(matches):
         feature_a = features_a[match.a_index]
-        coord_a = get_normalized_coord(feature_a, image_size)
+        coord_a = get_normalized_coord(feature_a)
         coords_a[index, :] = coord_a
         feature_b = features_b[match.b_index]
-        coord_b = get_normalized_coord(feature_b, image_size)
+        coord_b = get_normalized_coord(feature_b)
         coords_b[index, :] = coord_b
 
     return coords_a, coords_b

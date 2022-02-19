@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import logging
 
+from scipy.spatial.transform import Rotation
 import numpy as np
 
 from lib.common.feature import Feature
@@ -35,6 +36,30 @@ def estimate_essential_mat(
     e = _enforce_essential_mat_constraints(e_est)
 
     return e
+
+
+def recover_r_t(e: np.ndarray) -> Tuple[Rotation, np.ndarray]:
+    """Recover the rotation, and the translation up to a scale from an Essential matrix.
+
+    @param e essential matrix.
+    @return Tuple of rotation, translation.
+    """
+    u, s, vh = np.linalg.svd(e)
+
+    if not np.isclose(0.0, s[-1]):
+        raise ValueError(
+            "The smallest singluar value of the Essential matrix is expected to be ~0"
+        )
+
+    sigma = np.diag(s)
+
+    w = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
+    t_x_1 = u @ w @ sigma @ u.T
+    R_1 = u @ w.T @ vh
+    (t_x_1)
+    (R_1)
+
+    # TODO check all four possible solutions using the cheirality check
 
 
 def _get_normalized_match_coordinates(

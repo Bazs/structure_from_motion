@@ -147,7 +147,7 @@ class EightPointTest(unittest.TestCase):
             for index in range(len(features_1))
         ]
 
-        E = eight_point.estimate_essential_mat(
+        e = eight_point.estimate_essential_mat(
             features_1,
             features_2,
             matches,
@@ -156,8 +156,8 @@ class EightPointTest(unittest.TestCase):
                 cam_width_px,
             ),
         )
-        (E)
-        # TODO decompose E and validate
+        eight_point.recover_r_t(e)
+        # TODO validate decomposition
 
     @staticmethod
     def _rotate_rectangle(

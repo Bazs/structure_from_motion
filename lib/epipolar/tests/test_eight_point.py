@@ -147,7 +147,7 @@ class EightPointTest(unittest.TestCase):
             for index in range(len(features_1))
         ]
 
-        e = eight_point.estimate_essential_mat(
+        r, t = eight_point.estimate_r_t(
             features_1,
             features_2,
             matches,
@@ -156,7 +156,6 @@ class EightPointTest(unittest.TestCase):
                 cam_width_px,
             ),
         )
-        eight_point.recover_r_t(e)
         # TODO validate decomposition
 
     @staticmethod

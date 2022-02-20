@@ -13,7 +13,8 @@ in [Introduction to Autonomous Mobile Robots, Second Edition](https://mitpress.m
 Besides the Autonomous Mobile Robots book, I used several other sources to implement the various steps of the vision
 pipeline.
 
-### Essential Matrix estimation
+### Essential Matrix Estimation and Decomposition
 
 * [Wikipedia](https://en.wikipedia.org/wiki/Eight-point_algorithm#Normalized_algorithm)
 * [University of Edinburgh](https://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MOHR_TRIGGS/node50.html)
+* [Hartley, Richard; Andrew Zisserman (2004). Multiple view geometry in computer vision (2nd ed.). Cambridge, UK.](https://www.robots.ox.ac.uk/~vgg/hzbook/)

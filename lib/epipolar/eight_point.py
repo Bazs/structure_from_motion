@@ -8,6 +8,38 @@ from lib.common.feature import Feature
 from lib.feature_matching.matching import Match
 
 
+def estimate_r_t(
+    features_a: List[Feature],
+    features_b: List[Feature],
+    matches: List[Match],
+    image_size: Tuple[int, int],
+):
+    """Estimates rotation and translation up to a scale based on eight feature matches between two images.
+
+    Uses the Eight-Point algorithm to estimate the Essential matrix, then decomposes the Essential matrix
+    into rotation and translation up to a scale.
+
+    @param features_a List of features from the first image.
+    @param features_b List of features from the second image.
+    @param matches Exactly eight matches between features_a and features_b.
+    @param image_size The size of the original images A and B from which the matching features
+    are from. The size is [image_height, image_width].
+    @return: Tuple of cam2_R_cam1, cam2_t_cam2_cam1.
+    """
+    if not features_a or not features_b:
+        raise ValueError("Need some matching features")
+
+    e = estimate_essential_mat(features_a, features_b, matches, image_size)
+
+    feature_a = features_a[0]
+    match = next(match for match in matches if match.a_index == 0)
+    feature_b = features_b[match.b_index]
+
+    r, t = recover_r_t(feature_a, feature_b, e)
+
+    return r, t
+
+
 def estimate_essential_mat(
     features_a: List[Feature],
     features_b: List[Feature],
@@ -38,9 +70,13 @@ def estimate_essential_mat(
     return e
 
 
-def recover_r_t(e: np.ndarray) -> Tuple[Rotation, np.ndarray]:
+def recover_r_t(
+    feature_a: Feature, feature_b: Feature, e: np.ndarray
+) -> Tuple[Rotation, np.ndarray]:
     """Recover the rotation, and the translation up to a scale from an Essential matrix.
 
+    @param feature_a A feature point from the first image.
+    @param feature_b Corresponding feature point from the second image.
     @param e essential matrix.
     @return Tuple of rotation, translation.
     """
@@ -51,15 +87,19 @@ def recover_r_t(e: np.ndarray) -> Tuple[Rotation, np.ndarray]:
             "The smallest singluar value of the Essential matrix is expected to be ~0"
         )
 
-    sigma = np.diag(s)
-
     w = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
-    t_x_1 = u @ w @ sigma @ u.T
+    t_1 = u[:, 2]
+    t_2 = -t_1
     R_1 = u @ w.T @ vh
-    (t_x_1)
-    (R_1)
+    R_2 = u @ w @ vh
 
-    # TODO check all four possible solutions using the cheirality check
+    for R in [R_1, R_2]:
+        for t in [t_1, t_2]:
+            x = _triangulate(feature_a, feature_b, R, t)
+            (x)
+            # TODO check if x is in front of both cameras
+
+    return None, None
 
 
 def _get_normalized_match_coordinates(
@@ -168,3 +208,27 @@ def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
     s_prime = np.eye(3, dtype=float) * np.array([s[0], s[1], 0.0])
     e = u @ s_prime @ vh
     return e
+
+
+def _triangulate(
+    feature_a: Feature, feature_b: Feature, Rmat: np.ndarray, t: np.ndarray
+) -> np.ndarray:
+    u1 = feature_a.x
+    v1 = feature_a.y
+
+    u2 = feature_b.x
+    v2 = feature_b.y
+
+    r1 = Rmat[0, :]
+    r2 = Rmat[1, :]
+    r3 = Rmat[2, :]
+
+    y = np.array([u1, v1, 1.0], dtype=float)
+
+    x3_a = np.dot(r1 - u2 * r3, t) / np.dot(r1 - u2 * r3, y)
+    x3_b = np.dot(r2 - v2 * r3, t) / np.dot(r2 - v2 * r3, y)
+    x3 = np.mean([x3_a, x3_b])
+    x1 = x3 * u1
+    x2 = x3 * v1
+
+    return np.array([x1, x2, x3], dtype=float)

@@ -96,7 +96,8 @@ def recover_r_t(
     for R in [R_1, R_2]:
         for t in [t_1, t_2]:
             x = _triangulate(feature_a, feature_b, R, t)
-            (x)
+            cam2_t_cam2_x = x - t
+            cam2_t_cam2_x = R.T @ cam2_t_cam2_x
             # TODO check if x is in front of both cameras
 
     return None, None
@@ -186,6 +187,8 @@ def _compute_e_est(y: np.ndarray) -> np.ndarray:
 
     u, s, vh = np.linalg.svd(y)
 
+    logging.info(f"Singular values of Y: {s}")
+
     # The solution is the left-singular vector of Y corresponding to the smallest singular value
     e_est_vec = u[:, -1]
     assert (9,) == e_est_vec.shape
@@ -203,7 +206,7 @@ def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
     @return Essential matrix fulfilling the internal constraints.
     """
     u, s, vh = np.linalg.svd(e_est)
-    logging.debug(f"Singular values of E_est: {s}")
+    logging.info(f"Singular values of E_est: {s}")
     # Set the smallest singular value of E_est to 0
     s_prime = np.eye(3, dtype=float) * np.array([s[0], s[1], 0.0])
     e = u @ s_prime @ vh

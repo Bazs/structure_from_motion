@@ -1,3 +1,4 @@
+import logging
 import unittest
 
 from scipy.spatial.transform import Rotation
@@ -11,6 +12,12 @@ from lib.feature_matching.matching import Match
 
 
 class EightPointTest(unittest.TestCase):
+    def setUp(self) -> None:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(levelname)s %(filename)s:%(lineno)s\t %(message)s",
+        )
+
     def test_get_normalized_match_coordinates(self):
         image_size = (256, 512)
         features_a = [Feature(256, 128), Feature(128, 64)]
@@ -147,16 +154,23 @@ class EightPointTest(unittest.TestCase):
             for index in range(len(features_1))
         ]
 
-        r, t = eight_point.estimate_r_t(
+        image_size = (
+            cam_height_px,
+            cam_width_px,
+        )
+
+        e = eight_point.estimate_essential_mat(
             features_1,
             features_2,
             matches,
-            (
-                cam_height_px,
-                cam_width_px,
-            ),
+            image_size,
         )
-        # TODO validate decomposition
+
+        coords_a, coords_b = eight_point._get_normalized_match_coordinates(
+            features_1, features_2, matches, image_size
+        )
+        e_cv, _ = cv.findFundamentalMat(coords_a, coords_b)
+        # TODO compare results
 
     @staticmethod
     def _rotate_rectangle(

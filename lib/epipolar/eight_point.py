@@ -12,7 +12,6 @@ def estimate_r_t(
     features_a: List[Feature],
     features_b: List[Feature],
     matches: List[Match],
-    image_size: Tuple[int, int],
 ):
     """Estimates rotation and translation up to a scale based on eight feature matches between two images.
 
@@ -22,14 +21,12 @@ def estimate_r_t(
     @param features_a List of features from the first image.
     @param features_b List of features from the second image.
     @param matches Exactly eight matches between features_a and features_b.
-    @param image_size The size of the original images A and B from which the matching features
-    are from. The size is [image_height, image_width].
     @return: Tuple of cam2_R_cam1, cam2_t_cam2_cam1.
     """
     if not features_a or not features_b:
         raise ValueError("Need some matching features")
 
-    e = estimate_essential_mat(features_a, features_b, matches, image_size)
+    e = estimate_essential_mat(features_a, features_b, matches)
 
     feature_a = features_a[0]
     match = next(match for match in matches if match.a_index == 0)
@@ -44,7 +41,6 @@ def estimate_essential_mat(
     features_a: List[Feature],
     features_b: List[Feature],
     matches: List[Match],
-    image_size: Tuple[int, int],
 ) -> np.ndarray:
     """
     Estimates the Essential Matrix from eight point correspondences.
@@ -52,20 +48,26 @@ def estimate_essential_mat(
     @param features_a List of features from the first image.
     @param features_b List of features from the second image.
     @param matches Exactly eight matches between features_a and features_b.
-    @param image_size The size of the original images A and B from which the matching features
-    are from. The size is [image_height, image_width].
     @return The 3x3 Essential Matrix (https://en.wikipedia.org/wiki/Essential_matrix).
     """
     if 8 != len(matches):
         raise ValueError("Exactly eight matches are needed")
 
-    coords_a, coords_b = _get_normalized_match_coordinates(
-        features_a, features_b, matches, image_size
+    coords_a, coords_b, T1, T2 = _get_normalized_match_coordinates(
+        features_a, features_b, matches
     )
 
     y = _get_y_mat(coords_a, coords_b)
     e_est = _compute_e_est(y)
     e = _enforce_essential_mat_constraints(e_est)
+
+    # Apply the inverse transformation to un-normalize the essential matrix
+    e = T2.T @ e @ T1
+
+    # Enforce that the [2, 2] element == 1.0
+    e /= e[2, 2]
+
+    print(f"Final essential mat: {e}")
 
     return e
 
@@ -103,61 +105,108 @@ def recover_r_t(
     return None, None
 
 
-def _get_normalized_match_coordinates(
-    features_a: List[Feature],
-    features_b: List[Feature],
-    matches: List[Match],
-    image_size: Tuple[int, int],
+def _get_matching_coordinates(
+    features_a: List[Feature], features_b: List[Feature], matches: List[Match]
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Returns the matching feature coordinates normalized to [-1 1].
+    """Get two lists of matching image coordinates based on lists of features from
+    both images and a list of matches.
 
-    The aspect ratio of coordinates is kept, the larger extent being normalized to [-1, 1].
-
-    @param features_a List of features from the first image.
-    @param features_b List of features from the second image.
-    @param matches N matches between features_a and features_b.
-    @param image_size The size of the original images A and B from which the matching features
-    are from. The size is [image_height, image_width].
-    @return A pair of Nx2 matrices of normalized matching coordinates, one for features_b
-    and one for features_a.
+    :param features_a: Features from image A.
+    :param features_b: Features from image B.
+    :param matches: List of matches between image A and B.
+    :return: Two Nx2 matrices of corresponding image coordinates.
     """
     coords_a = np.empty((len(matches), 2), dtype=float)
     coords_b = np.empty((len(matches), 2), dtype=float)
 
-    normalizer = np.max(image_size)
-
-    def get_normalized_coord(feature: Feature) -> np.ndarray:
-        """Returns the feature's coordinates normalized to the [-1 1] range."""
-        assert 0 <= feature.x <= image_size[1]
-        assert 0 <= feature.y <= image_size[0]
-        coord = np.array([feature.x / normalizer, feature.y / normalizer])
-        coord *= 2.0
-        coord -= 1.0
-        return coord
-
     for index, match in enumerate(matches):
         feature_a = features_a[match.a_index]
-        coord_a = get_normalized_coord(feature_a)
-        coords_a[index, :] = coord_a
+        coords_a[index, :] = np.array([feature_a.x, feature_a.y])
         feature_b = features_b[match.b_index]
-        coord_b = get_normalized_coord(feature_b)
-        coords_b[index, :] = coord_b
+        coords_b[index, :] = np.array([feature_b.x, feature_b.y])
 
     return coords_a, coords_b
+
+
+def _normalize_coords(
+    coords_a: np.ndarray, coords_b: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Normalize two lists of coordinates so that their mass centers are at the
+    coordinate origin, and the average distance from the origin is sqrt(2).
+
+    Return the inverse normalization transformation.
+
+    :param coords_a: Coordnates from image A.
+    :param coords_b: Corresponding coordinates from image B.
+    :return: Tuple of [normalized coordinates A, normalized coordintes B, inverse transformation
+    pt1, inverse transformation pt2.]
+    """
+    assert len(coords_a) == len(coords_b)
+
+    centroid_a = np.mean(coords_a, axis=0)
+    centroid_b = np.mean(coords_b, axis=0)
+
+    centered_coords_a = coords_a - centroid_a
+    centered_coords_b = coords_b - centroid_b
+
+    centered_norms_a = np.linalg.norm(centered_coords_a, axis=1)
+    scale_a = np.sum(centered_norms_a) / len(coords_a)
+    scale_a = np.sqrt(2.0) / scale_a
+    centered_norms_b = np.linalg.norm(centered_coords_b, axis=1)
+    scale_b = np.sum(centered_norms_b) / len(coords_b)
+    scale_b = np.sqrt(2.0) / scale_b
+
+    normalized_coords_a = centered_coords_a * scale_a
+    normalized_coords_b = centered_coords_b * scale_b
+
+    # Compute the inverse transformations as well
+    T1 = np.array(
+        [
+            [scale_a, 0.0, -scale_a * centroid_a[0]],
+            [0.0, scale_a, -scale_a * centroid_a[1]],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    T2 = np.array(
+        [
+            [scale_b, 0.0, -scale_b * centroid_b[0]],
+            [0.0, scale_b, -scale_b * centroid_b[1]],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+
+    return normalized_coords_a, normalized_coords_b, T1, T2
+
+
+def _get_normalized_match_coordinates(
+    features_a: List[Feature],
+    features_b: List[Feature],
+    matches: List[Match],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """TODO update doc
+
+    @param features_a List of features from the first image.
+    @param features_b List of features from the second image.
+    @param matches N matches between features_a and features_b.
+    @return A pair of Nx2 matrices of normalized matching coordinates, one for features_b
+    and one for features_a.
+    """
+    coords_a, coords_b = _get_matching_coordinates(features_a, features_b, matches)
+    return _normalize_coords(coords_a, coords_b)
 
 
 def _get_y_mat(coords_a: np.ndarray, coords_b: np.ndarray):
     assert len(coords_a) == len(coords_b) == 8
 
-    y = np.empty((9, 8), dtype=float)
+    y = np.empty((8, 9), dtype=float)
 
-    for col_idx in range(len(coords_a)):
-        y[:, col_idx] = _get_y_col(coords_a[col_idx, :], coords_b[col_idx, :])
+    for row_idx in range(len(coords_a)):
+        y[row_idx, :] = _get_y_row(coords_a[row_idx, :], coords_b[row_idx, :])
 
     return y
 
 
-def _get_y_col(coord_a: np.ndarray, coord_b: np.ndarray):
+def _get_y_row(coord_a: np.ndarray, coord_b: np.ndarray):
     assert 2 == len(coord_a)
     assert 2 == len(coord_b)
 
@@ -183,16 +232,14 @@ def _compute_e_est(y: np.ndarray) -> np.ndarray:
     @param y The Y matrix, constructed from eight matching normalized coordinate pairs.
     @return An estimate of the Essential matrix, not necessarily of rank 2.
     """
-    assert (9, 8) == y.shape
+    assert (8, 9) == y.shape
 
-    u, s, vh = np.linalg.svd(y)
+    yTy = y.T @ y
 
-    logging.info(f"Singular values of Y: {s}")
-
-    # The solution is the left-singular vector of Y corresponding to the smallest singular value
-    e_est_vec = u[:, -1]
-    assert (9,) == e_est_vec.shape
-    e_est = e_est_vec.reshape((3, 3))
+    w, v = np.linalg.eig(yTy)
+    min_index = np.argmin(np.abs(w))
+    v_min = v[min_index]
+    e_est = v_min.reshape((3, 3))
 
     return e_est
 
@@ -208,7 +255,8 @@ def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
     u, s, vh = np.linalg.svd(e_est)
     logging.info(f"Singular values of E_est: {s}")
     # Set the smallest singular value of E_est to 0
-    s_prime = np.eye(3, dtype=float) * np.array([s[0], s[1], 0.0])
+    s[2] = 0.0
+    s_prime = np.diag(s)
     e = u @ s_prime @ vh
     return e
 

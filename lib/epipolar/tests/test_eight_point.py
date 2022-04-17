@@ -40,7 +40,7 @@ class EightPointTest(unittest.TestCase):
         coord_a = np.array([2.0, 3.0])
         coord_b = np.array([7.0, 6.0])
 
-        y_col = eight_point._get_y_row(coord_a, coord_b)
+        y_col = eight_point._get_y_col(coord_a, coord_b)
         self.assertEqual((9,), y_col.shape)
 
         expected_y_col = np.array(
@@ -174,7 +174,7 @@ class EightPointTest(unittest.TestCase):
 
     @staticmethod
     def _rotate_rectangle(
-        world_t_world_rectangle: np.ndarray, rotation: Rotation
+            world_t_world_rectangle: np.ndarray, rotation: Rotation
     ) -> np.ndarray:
         centroid = np.mean(world_t_world_rectangle, axis=0)
         rectangle_t_rectangle_rectangle = world_t_world_rectangle - centroid
@@ -193,7 +193,7 @@ class EightPointTest(unittest.TestCase):
 
     @staticmethod
     def _plot_camera(
-        ax: plt.axes, world_t_world_camera: np.ndarray, camera_R_world: np.ndarray
+            ax: plt.axes, world_t_world_camera: np.ndarray, camera_R_world: np.ndarray
     ) -> None:
         ax.scatter(
             world_t_world_camera[0], world_t_world_camera[1], world_t_world_camera[2]
@@ -212,7 +212,7 @@ class EightPointTest(unittest.TestCase):
 
     @staticmethod
     def _plot_camera_points(
-        ax: plt.axes, camera_points: np.ndarray, cam_width: int, cam_height: int
+            ax: plt.axes, camera_points: np.ndarray, cam_width: int, cam_height: int
     ):
         ax.plot(camera_points[:, 0], camera_points[:, 1])
         ax.set_xlim(0, cam_width)

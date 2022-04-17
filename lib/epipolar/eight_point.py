@@ -53,12 +53,12 @@ def estimate_essential_mat(
     if 8 != len(matches):
         raise ValueError("Exactly eight matches are needed")
 
-    coords_a, coords_b, T1, T2 = _get_normalized_match_coordinates(
+    coords_a, T1, coords_b, T2 = _get_normalized_match_coordinates(
         features_a, features_b, matches
     )
 
-    y = _get_y_mat(coords_a, coords_b)
-    e_est = _compute_e_est(y)
+    yT_y = _get_yT_y(coords_a, coords_b)
+    e_est = _compute_e_est(yT_y)
     e = _enforce_essential_mat_constraints(e_est)
 
     # Apply the inverse transformation to un-normalize the essential matrix
@@ -128,54 +128,35 @@ def _get_matching_coordinates(
     return coords_a, coords_b
 
 
-def _normalize_coords(
-    coords_a: np.ndarray, coords_b: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _normalize_coords(coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Normalize two lists of coordinates so that their mass centers are at the
     coordinate origin, and the average distance from the origin is sqrt(2).
 
     Return the inverse normalization transformation.
 
-    :param coords_a: Coordnates from image A.
-    :param coords_b: Corresponding coordinates from image B.
-    :return: Tuple of [normalized coordinates A, normalized coordintes B, inverse transformation
-    pt1, inverse transformation pt2.]
+    :param coords: Coordinates from an image.
+    :return: Tuple of [normalized coordinates, inverse transformation].
     """
-    assert len(coords_a) == len(coords_b)
 
-    centroid_a = np.mean(coords_a, axis=0)
-    centroid_b = np.mean(coords_b, axis=0)
+    centroid = np.mean(coords, axis=0)
+    centered_coords = coords - centroid
 
-    centered_coords_a = coords_a - centroid_a
-    centered_coords_b = coords_b - centroid_b
+    centered_norms = np.linalg.norm(centered_coords, axis=1)
+    scale = np.sum(centered_norms) / len(coords)
+    scale = np.sqrt(2.0) / scale
 
-    centered_norms_a = np.linalg.norm(centered_coords_a, axis=1)
-    scale_a = np.sum(centered_norms_a) / len(coords_a)
-    scale_a = np.sqrt(2.0) / scale_a
-    centered_norms_b = np.linalg.norm(centered_coords_b, axis=1)
-    scale_b = np.sum(centered_norms_b) / len(coords_b)
-    scale_b = np.sqrt(2.0) / scale_b
+    normalized_coords = centered_coords * scale
 
-    normalized_coords_a = centered_coords_a * scale_a
-    normalized_coords_b = centered_coords_b * scale_b
-
-    # Compute the inverse transformations as well
-    T1 = np.array(
+    # Compute the inverse transformation as well.
+    t = np.array(
         [
-            [scale_a, 0.0, -scale_a * centroid_a[0]],
-            [0.0, scale_a, -scale_a * centroid_a[1]],
-            [0.0, 0.0, 1.0],
-        ]
-    )
-    T2 = np.array(
-        [
-            [scale_b, 0.0, -scale_b * centroid_b[0]],
-            [0.0, scale_b, -scale_b * centroid_b[1]],
+            [scale, 0.0, -scale * centroid[0]],
+            [0.0, scale, -scale * centroid[1]],
             [0.0, 0.0, 1.0],
         ]
     )
 
-    return normalized_coords_a, normalized_coords_b, T1, T2
+    return normalized_coords, t
 
 
 def _get_normalized_match_coordinates(
@@ -183,30 +164,34 @@ def _get_normalized_match_coordinates(
     features_b: List[Feature],
     matches: List[Match],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """TODO update doc
+    """Get two sets of corresponding coordinates, normalized so that their mass centers are at the
+    coordinate origin, and the average distance from the origin is sqrt(2).
+
+    Also compute the inverse of the normalization transformations.
 
     @param features_a List of features from the first image.
     @param features_b List of features from the second image.
     @param matches N matches between features_a and features_b.
-    @return A pair of Nx2 matrices of normalized matching coordinates, one for features_b
-    and one for features_a.
+    @return Tuple of [normalized coords a (Nx2 matrix), inverse transformation T1,
+        corresponding normalized coords b (Nx2) matrix, inverse transformation T2]
     """
     coords_a, coords_b = _get_matching_coordinates(features_a, features_b, matches)
-    return _normalize_coords(coords_a, coords_b)
+    return (*_normalize_coords(coords_a), *_normalize_coords(coords_b))
 
 
-def _get_y_mat(coords_a: np.ndarray, coords_b: np.ndarray):
+def _get_yT_y(coords_a: np.ndarray, coords_b: np.ndarray):
     assert len(coords_a) == len(coords_b) == 8
 
-    y = np.empty((8, 9), dtype=float)
+    yT_y = np.empty((9, 9), dtype=float)
 
     for row_idx in range(len(coords_a)):
-        y[row_idx, :] = _get_y_row(coords_a[row_idx, :], coords_b[row_idx, :])
+        row = _get_y_col(coords_a[row_idx, :], coords_b[row_idx, :])
+        yT_y[row_idx, :] += row @ row.T
 
-    return y
+    return yT_y
 
 
-def _get_y_row(coord_a: np.ndarray, coord_b: np.ndarray):
+def _get_y_col(coord_a: np.ndarray, coord_b: np.ndarray):
     assert 2 == len(coord_a)
     assert 2 == len(coord_b)
 
@@ -224,19 +209,18 @@ def _get_y_row(coord_a: np.ndarray, coord_b: np.ndarray):
     return y_col
 
 
-def _compute_e_est(y: np.ndarray) -> np.ndarray:
+def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
     """
     Estimates the essential matrix from the Y matrix.
     (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_2:_Solving_the_equation)
 
-    @param y The Y matrix, constructed from eight matching normalized coordinate pairs.
+    @param yT_y The Y matrix, constructed from eight matching normalized coordinate pairs.
     @return An estimate of the Essential matrix, not necessarily of rank 2.
     """
-    assert (8, 9) == y.shape
+    assert (9, 9) == yT_y.shape
 
-    yTy = y.T @ y
-
-    w, v = np.linalg.eig(yTy)
+    w, v = np.linalg.eig(yT_y)
+    print(f"Eigenvalues of Y.T @ Y:\n{w}")
     min_index = np.argmin(np.abs(w))
     v_min = v[min_index]
     e_est = v_min.reshape((3, 3))

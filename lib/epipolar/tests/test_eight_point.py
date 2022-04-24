@@ -73,8 +73,6 @@ class EightPointTest(unittest.TestCase):
 
         # np.testing.assert_allclose(expected_y_col, y_col)
 
-    # TODO fix and re-enable
-    @unittest.skip
     def test_estimate_essential_matrix(self):
         rectangle_width = np.array([1.0, 0.0, 0.0])
         rectangle_height = np.array([0.0, 0.5, 0.0])

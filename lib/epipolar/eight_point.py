@@ -9,9 +9,9 @@ from lib.feature_matching.matching import Match
 
 
 def estimate_r_t(
-        features_a: List[Feature],
-        features_b: List[Feature],
-        matches: List[Match],
+    features_a: List[Feature],
+    features_b: List[Feature],
+    matches: List[Match],
 ):
     """Estimates rotation and translation up to a scale based on eight feature matches between two images.
 
@@ -38,9 +38,9 @@ def estimate_r_t(
 
 
 def estimate_essential_mat(
-        features_a: List[Feature],
-        features_b: List[Feature],
-        matches: List[Match],
+    features_a: List[Feature],
+    features_b: List[Feature],
+    matches: List[Match],
 ) -> np.ndarray:
     """
     Estimates the Essential Matrix from eight point correspondences.
@@ -73,7 +73,7 @@ def estimate_essential_mat(
 
 
 def recover_r_t(
-        feature_a: Feature, feature_b: Feature, e: np.ndarray
+    feature_a: Feature, feature_b: Feature, e: np.ndarray
 ) -> Tuple[Rotation, np.ndarray]:
     """Recover the rotation, and the translation up to a scale from an Essential matrix.
 
@@ -106,7 +106,7 @@ def recover_r_t(
 
 
 def _get_matching_coordinates(
-        features_a: List[Feature], features_b: List[Feature], matches: List[Match]
+    features_a: List[Feature], features_b: List[Feature], matches: List[Match]
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Get two lists of matching image coordinates based on lists of features from
     both images and a list of matches.
@@ -159,9 +159,9 @@ def _normalize_coords(coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def _get_normalized_match_coordinates(
-        features_a: List[Feature],
-        features_b: List[Feature],
-        matches: List[Match],
+    features_a: List[Feature],
+    features_b: List[Feature],
+    matches: List[Match],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Get two sets of corresponding coordinates, normalized so that their mass centers are at the
     coordinate origin, and the average distance from the origin is sqrt(2).
@@ -179,13 +179,14 @@ def _get_normalized_match_coordinates(
 
 
 def _get_yT_y(coords_a: np.ndarray, coords_b: np.ndarray):
+    """Compute y.T @ y, from which the essential matrix can be recovered."""
     assert len(coords_a) == len(coords_b) == 8
 
-    yT_y = np.empty((9, 9), dtype=float)
+    yT_y = np.zeros((9, 9), dtype=float)
 
-    for row_idx in range(len(coords_a)):
-        row = _get_y_col(coords_a[row_idx, :], coords_b[row_idx, :])
-        yT_y[row_idx, :] += row @ row.T
+    for col_idx in range(len(coords_a)):
+        col = _get_y_col(coords_a[col_idx, :], coords_b[col_idx, :])
+        yT_y += np.outer(col, col)
 
     return yT_y
 
@@ -220,7 +221,7 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
 
     w, v = np.linalg.eig(yT_y)
     print(f"Eigenvalues of Y.T @ Y:\n{w}")
-    min_index = np.argmin(np.abs(w))
+    min_index = np.argmin(abs(w))
     v_min = v[min_index]
     e_est = v_min.reshape((3, 3))
 
@@ -245,7 +246,7 @@ def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
 
 
 def _triangulate(
-        feature_a: Feature, feature_b: Feature, Rmat: np.ndarray, t: np.ndarray
+    feature_a: Feature, feature_b: Feature, Rmat: np.ndarray, t: np.ndarray
 ) -> np.ndarray:
     u1 = feature_a.x
     v1 = feature_a.y

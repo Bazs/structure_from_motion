@@ -188,6 +188,10 @@ class EightPointTest(unittest.TestCase):
         coords_a, coords_b = eight_point._get_matching_coordinates(
             features_1, features_2, matches
         )
+        np.set_printoptions(precision=20)
+        print(
+            f"Input coords for findFundamenalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
+        )
         e_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
         print(f"OpenCV estimated essential mat: {e_cv}")
         # TODO compare results

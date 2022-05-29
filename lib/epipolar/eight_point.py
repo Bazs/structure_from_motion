@@ -116,14 +116,14 @@ def _get_matching_coordinates(
     :param matches: List of matches between image A and B.
     :return: Two Nx2 matrices of corresponding image coordinates.
     """
-    coords_a = np.empty((len(matches), 2), dtype=float)
-    coords_b = np.empty((len(matches), 2), dtype=float)
+    coords_a = np.empty((len(matches), 2), dtype=np.float64)
+    coords_b = np.empty((len(matches), 2), dtype=np.float64)
 
     for index, match in enumerate(matches):
         feature_a = features_a[match.a_index]
-        coords_a[index, :] = np.array([feature_a.x, feature_a.y])
+        coords_a[index, :] = np.array([feature_a.x, feature_a.y], dtype=np.float64)
         feature_b = features_b[match.b_index]
-        coords_b[index, :] = np.array([feature_b.x, feature_b.y])
+        coords_b[index, :] = np.array([feature_b.x, feature_b.y], dtype=np.float64)
 
     return coords_a, coords_b
 
@@ -152,7 +152,8 @@ def _normalize_coords(coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
             [scale, 0.0, -scale * centroid[0]],
             [0.0, scale, -scale * centroid[1]],
             [0.0, 0.0, 1.0],
-        ]
+        ],
+        dtype=np.float64,
     )
 
     return normalized_coords, t
@@ -182,11 +183,13 @@ def _get_yT_y(coords_a: np.ndarray, coords_b: np.ndarray):
     """Compute y.T @ y, from which the essential matrix can be recovered."""
     assert len(coords_a) == len(coords_b) == 8
 
-    yT_y = np.zeros((9, 9), dtype=float)
+    yT_y = np.zeros((9, 9), dtype=np.float64)
 
     for col_idx in range(len(coords_a)):
         col = _get_y_col(coords_a[col_idx, :], coords_b[col_idx, :])
         yT_y += np.outer(col, col)
+
+    print(f"yT_y:\n{yT_y}")
 
     return yT_y
 
@@ -195,7 +198,7 @@ def _get_y_col(coord_a: np.ndarray, coord_b: np.ndarray):
     assert 2 == len(coord_a)
     assert 2 == len(coord_b)
 
-    y_col = np.empty((9,), dtype=float)
+    y_col = np.empty((9,), dtype=np.float64)
     y_col[0] = coord_b[0] * coord_a[0]
     y_col[1] = coord_b[0] * coord_a[1]
     y_col[2] = coord_b[0]
@@ -221,8 +224,9 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
 
     w, v = np.linalg.eig(yT_y)
     print(f"Eigenvalues of Y.T @ Y:\n{w}")
-    min_index = np.argmin(abs(w))
-    v_min = v[min_index]
+    print(f"Eigenvectors of Y.T @ Y:\n{v}")
+    min_index = np.argmin(np.abs(w))
+    v_min = v[:, min_index]
     e_est = v_min.reshape((3, 3))
 
     return e_est
@@ -258,7 +262,7 @@ def _triangulate(
     r2 = Rmat[1, :]
     r3 = Rmat[2, :]
 
-    y = np.array([u1, v1, 1.0], dtype=float)
+    y = np.array([u1, v1, 1.0], dtype=np.float64)
 
     x3_a = np.dot(r1 - u2 * r3, t) / np.dot(r1 - u2 * r3, y)
     x3_b = np.dot(r2 - v2 * r3, t) / np.dot(r2 - v2 * r3, y)
@@ -266,4 +270,4 @@ def _triangulate(
     x1 = x3 * u1
     x2 = x3 * v1
 
-    return np.array([x1, x2, x3], dtype=float)
+    return np.array([x1, x2, x3], dtype=np.float64)

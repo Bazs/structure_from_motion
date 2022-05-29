@@ -73,6 +73,51 @@ class EightPointTest(unittest.TestCase):
 
         # np.testing.assert_allclose(expected_y_col, y_col)
 
+    def test_estimate_essential_matrix_point_cloud(self):
+        rng = np.random.default_rng(seed=5)
+        NUM_POINTS = 8
+        world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
+
+        fig = plt.figure()
+        ax_3d = fig.add_subplot(131, projection="3d")
+        self._plot_world_points(ax_3d, world_t_world_points)
+
+        f = 100.0
+        cam_width_px = 512
+        cam_height_px = 256
+        K = np.array(
+            [
+                [f, 0.0, cam_width_px / 2.0],
+                [0.0, f, cam_height_px / 2.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+
+        world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
+        camera1_Rmat_world = np.eye(3, dtype=float)
+        camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
+
+        self._plot_camera(ax_3d, world_t_world_camera1, camera1_Rmat_world)
+
+        cam1_points, _ = cv.projectPoints(
+            world_t_world_points,
+            camera1_Rvec_world,
+            -world_t_world_camera1,
+            K,
+            None,
+        )
+
+        cam1_points = cam1_points.squeeze()
+        cam1_ax = fig.add_subplot(132)
+        self._plot_camera_points(
+            cam1_ax, cam1_points, cam_width_px, cam_height_px, mode="scatter"
+        )
+
+        # plt.show()
+
+    @unittest.skip(
+        reason="Currently verifying with test_estimate_essential_matrix_point_cloud"
+    )
     def test_estimate_essential_matrix(self):
         rectangle_width = np.array([1.0, 0.0, 0.0])
         rectangle_height = np.array([0.0, 0.5, 0.0])
@@ -130,6 +175,7 @@ class EightPointTest(unittest.TestCase):
         # Choose the smallest focal length to ensure a minimum of guaranteed deg FOV with a
         # square pixel size
         f = min(f_x, f_y)
+        print(f"Focal length: {f}")
 
         # Build the camera intrinsic matrix
         K = np.array(
@@ -218,6 +264,13 @@ class EightPointTest(unittest.TestCase):
         ax.set_zlabel("z")
 
     @staticmethod
+    def _plot_world_points(ax: plt.axes, points: np.ndarray) -> None:
+        ax.scatter(points[:, 0], points[:, 1], points[:, 2])
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
+
+    @staticmethod
     def _plot_camera(
         ax: plt.axes, world_t_world_camera: np.ndarray, camera_R_world: np.ndarray
     ) -> None:
@@ -240,9 +293,18 @@ class EightPointTest(unittest.TestCase):
 
     @staticmethod
     def _plot_camera_points(
-        ax: plt.axes, camera_points: np.ndarray, cam_width: int, cam_height: int
+        ax: plt.axes,
+        camera_points: np.ndarray,
+        cam_width: int,
+        cam_height: int,
+        mode: str = "plot",
     ):
-        ax.plot(camera_points[:, 0], camera_points[:, 1])
+        if "plot" == mode:
+            ax.plot(camera_points[:, 0], camera_points[:, 1])
+        elif "scatter" == mode:
+            ax.scatter(camera_points[:, 0], camera_points[:, 1])
+        else:
+            raise ValueError(f"Unsupported mode {mode}")
         ax.set_xlim(0, cam_width)
         ax.set_ylim(0, cam_height)
         ax.set_aspect("equal")

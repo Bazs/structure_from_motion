@@ -97,7 +97,13 @@ class EightPointTest(unittest.TestCase):
         camera1_Rmat_world = np.eye(3, dtype=float)
         camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
 
+        world_t_world_camera2 = np.array([2.5, 0.1, -1.5])
+        camera2_R_world = Rotation.from_euler("XY", [-20.0, -50.0], degrees=True)
+        camera2_Rmat_world = camera2_R_world.as_matrix()
+        camera2_Rvec_world, _ = cv.Rodrigues(camera2_Rmat_world)
+
         self._plot_camera(ax_3d, world_t_world_camera1, camera1_Rmat_world)
+        self._plot_camera(ax_3d, world_t_world_camera2, camera2_Rmat_world)
 
         cam1_points, _ = cv.projectPoints(
             world_t_world_points,
@@ -106,14 +112,50 @@ class EightPointTest(unittest.TestCase):
             K,
             None,
         )
-
         cam1_points = cam1_points.squeeze()
+        cam2_points, _ = cv.projectPoints(
+            world_t_world_points,
+            camera2_Rvec_world,
+            -world_t_world_camera2,
+            K,
+            None,
+        )
+        cam2_points = cam2_points.squeeze()
+
         cam1_ax = fig.add_subplot(132)
         self._plot_camera_points(
             cam1_ax, cam1_points, cam_width_px, cam_height_px, mode="scatter"
         )
+        cam2_ax = fig.add_subplot(133)
+        self._plot_camera_points(
+            cam2_ax, cam2_points, cam_width_px, cam_height_px, mode="scatter"
+        )
 
         # plt.show()
+
+        features_1 = [Feature(x=point[0], y=point[1]) for point in cam1_points]
+        features_2 = [Feature(x=point[0], y=point[1]) for point in cam2_points]
+        matches = [
+            Match(a_index=index, b_index=index, match_score=0.0)
+            for index in range(len(features_1))
+        ]
+        e = eight_point.estimate_essential_mat(
+            features_1,
+            features_2,
+            matches,
+        )
+
+        coords_a, coords_b = eight_point._get_matching_coordinates(
+            features_1, features_2, matches
+        )
+        np.set_printoptions(precision=20)
+        print(
+            f"Input coords for findFundamenalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
+        )
+        e_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
+        print(f"OpenCV estimated essential mat: {e_cv}")
+
+        np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
     @unittest.skip(
         reason="Currently verifying with test_estimate_essential_matrix_point_cloud"
@@ -219,12 +261,10 @@ class EightPointTest(unittest.TestCase):
             Match(a_index=index, b_index=index, match_score=0.0)
             for index in range(len(features_1))
         ]
-
         image_size = (
             cam_height_px,
             cam_width_px,
         )
-
         e = eight_point.estimate_essential_mat(
             features_1,
             features_2,

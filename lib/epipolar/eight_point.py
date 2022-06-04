@@ -1,11 +1,14 @@
-from typing import List, Tuple
 import logging
+from pathlib import Path
+from typing import List, Tuple
 
-from scipy.spatial.transform import Rotation
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
 from lib.feature_matching.matching import Match
+
+_logger = logging.getLogger(Path(__file__).stem)
 
 
 def estimate_r_t(
@@ -189,7 +192,7 @@ def _get_yT_y(coords_a: np.ndarray, coords_b: np.ndarray):
         col = _get_y_col(coords_a[col_idx, :], coords_b[col_idx, :])
         yT_y += np.outer(col, col)
 
-    print(f"yT_y:\n{yT_y}")
+    _logger.debug(f"yT_y:\n{yT_y}")
 
     return yT_y
 
@@ -223,8 +226,8 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
     assert (9, 9) == yT_y.shape
 
     w, v = np.linalg.eig(yT_y)
-    print(f"Eigenvalues of Y.T @ Y:\n{w}")
-    print(f"Eigenvectors of Y.T @ Y:\n{v}")
+    _logger.debug(f"Eigenvalues of Y.T @ Y:\n{w}")
+    _logger.debug(f"Eigenvectors of Y.T @ Y:\n{v}")
     min_index = np.argmin(np.abs(w))
     v_min = v[:, min_index]
     e_est = v_min.reshape((3, 3))
@@ -241,7 +244,7 @@ def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
     @return Essential matrix fulfilling the internal constraints.
     """
     u, s, vh = np.linalg.svd(e_est)
-    logging.info(f"Singular values of E_est: {s}")
+    _logger.debug(f"Singular values of E_est: {s}")
     # Set the smallest singular value of E_est to 0
     s[2] = 0.0
     s_prime = np.diag(s)

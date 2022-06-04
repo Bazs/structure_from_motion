@@ -1,10 +1,10 @@
 import logging
 import unittest
 
-from scipy.spatial.transform import Rotation
+import cv2.cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2.cv2 as cv
+from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
 from lib.epipolar import eight_point
@@ -50,7 +50,7 @@ class EightPointTest(unittest.TestCase):
         unnormalized_coords = unnormalized_coords_homo[:, :-1]
         np.testing.assert_allclose(input_coords, unnormalized_coords)
 
-    def test_get_y_row(self):
+    def test_get_y_col(self):
         coord_a = np.array([2.0, 3.0])
         coord_b = np.array([7.0, 6.0])
 
@@ -71,7 +71,7 @@ class EightPointTest(unittest.TestCase):
             ]
         )
 
-        # np.testing.assert_allclose(expected_y_col, y_col)
+        np.testing.assert_allclose(expected_y_col, y_col)
 
     def test_estimate_essential_matrix_point_cloud(self):
         rng = np.random.default_rng(seed=5)
@@ -149,11 +149,11 @@ class EightPointTest(unittest.TestCase):
             features_1, features_2, matches
         )
         np.set_printoptions(precision=20)
-        print(
+        logging.info(
             f"Input coords for findFundamenalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
         )
         e_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
-        print(f"OpenCV estimated essential mat: {e_cv}")
+        logging.info(f"OpenCV estimated essential mat: {e_cv}")
 
         np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
@@ -217,7 +217,6 @@ class EightPointTest(unittest.TestCase):
         # Choose the smallest focal length to ensure a minimum of guaranteed deg FOV with a
         # square pixel size
         f = min(f_x, f_y)
-        print(f"Focal length: {f}")
 
         # Build the camera intrinsic matrix
         K = np.array(
@@ -275,11 +274,11 @@ class EightPointTest(unittest.TestCase):
             features_1, features_2, matches
         )
         np.set_printoptions(precision=20)
-        print(
+        logging.info(
             f"Input coords for findFundamenalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
         )
         e_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
-        print(f"OpenCV estimated essential mat: {e_cv}")
+        logging.info(f"OpenCV estimated essential mat: {e_cv}")
         # TODO compare results
 
         r, t = eight_point.recover_r_t(features_1[0], features_2[0], e)

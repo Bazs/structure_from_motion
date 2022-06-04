@@ -73,7 +73,7 @@ class EightPointTest(unittest.TestCase):
 
         np.testing.assert_allclose(expected_y_col, y_col)
 
-    def test_estimate_essential_matrix_point_cloud(self):
+    def test_estimate_essential_matrix(self):
         rng = np.random.default_rng(seed=5)
         NUM_POINTS = 8
         world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
@@ -157,10 +157,7 @@ class EightPointTest(unittest.TestCase):
 
         np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
-    @unittest.skip(
-        reason="Currently verifying with test_estimate_essential_matrix_point_cloud"
-    )
-    def test_estimate_essential_matrix(self):
+    def test_estimate_essential_matrix_degenerate(self):
         rectangle_width = np.array([1.0, 0.0, 0.0])
         rectangle_height = np.array([0.0, 0.5, 0.0])
         rectangle_origin = np.zeros((3,), dtype=float)
@@ -260,28 +257,12 @@ class EightPointTest(unittest.TestCase):
             Match(a_index=index, b_index=index, match_score=0.0)
             for index in range(len(features_1))
         ]
-        image_size = (
-            cam_height_px,
-            cam_width_px,
-        )
-        e = eight_point.estimate_essential_mat(
-            features_1,
-            features_2,
-            matches,
-        )
-
-        coords_a, coords_b = eight_point._get_matching_coordinates(
-            features_1, features_2, matches
-        )
-        np.set_printoptions(precision=20)
-        logging.info(
-            f"Input coords for findFundamenalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
-        )
-        e_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
-        logging.info(f"OpenCV estimated essential mat: {e_cv}")
-        # TODO compare results
-
-        r, t = eight_point.recover_r_t(features_1[0], features_2[0], e)
+        with self.assertRaises(eight_point.EightPointCalculationError):
+            e = eight_point.estimate_essential_mat(
+                features_1,
+                features_2,
+                matches,
+            )
 
     @staticmethod
     def _rotate_rectangle(

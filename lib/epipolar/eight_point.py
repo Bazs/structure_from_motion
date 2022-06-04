@@ -11,6 +11,12 @@ from lib.feature_matching.matching import Match
 _logger = logging.getLogger(Path(__file__).stem)
 
 
+class EightPointCalculationError(Exception):
+    """Raised if the computation cannot proceed due to ill-conditioned input data."""
+
+    pass
+
+
 def estimate_r_t(
     features_a: List[Feature],
     features_b: List[Feature],
@@ -88,7 +94,7 @@ def recover_r_t(
     u, s, vh = np.linalg.svd(e)
 
     if not np.isclose(0.0, s[-1]):
-        raise ValueError(
+        raise EightPointCalculationError(
             "The smallest singluar value of the Essential matrix is expected to be ~0"
         )
 
@@ -222,12 +228,23 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
 
     @param yT_y The Y matrix, constructed from eight matching normalized coordinate pairs.
     @return An estimate of the Essential matrix, not necessarily of rank 2.
+    @raise EightPointCalculationError If the Essential matrix cannot be estimated.
     """
     assert (9, 9) == yT_y.shape
 
     w, v = np.linalg.eig(yT_y)
     _logger.debug(f"Eigenvalues of Y.T @ Y:\n{w}")
     _logger.debug(f"Eigenvectors of Y.T @ Y:\n{v}")
+
+    # Check that only the last eigenvalue is very small.
+    VERY_SMALL = 1e-10
+    sorted_w = np.sort(w)
+    if np.any(sorted_w[1:] <= VERY_SMALL):
+        raise EightPointCalculationError(
+            "More than one eigenvalue of Y.T @ Y is small. Cannot confidently estimate"
+            " essential matrix."
+        )
+
     min_index = np.argmin(np.abs(w))
     v_min = v[:, min_index]
     e_est = v_min.reshape((3, 3))

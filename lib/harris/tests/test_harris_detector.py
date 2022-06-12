@@ -1,5 +1,5 @@
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 import cv2.cv2
 import cv2.cv2 as cv

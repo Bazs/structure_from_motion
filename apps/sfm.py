@@ -1,11 +1,10 @@
+import logging
+from pathlib import Path
 from typing import Callable, List, Tuple
 
-from pathlib import Path
-import logging
-
-from cv2 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+from cv2 import cv2 as cv
 
 from lib.common import feature
 from lib.feature_matching import matching, nnc

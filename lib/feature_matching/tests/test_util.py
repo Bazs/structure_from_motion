@@ -1,5 +1,5 @@
-from functools import partial
 import unittest
+from functools import partial
 
 from lib.common import feature
 from lib.feature_matching import util

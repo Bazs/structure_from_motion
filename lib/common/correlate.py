@@ -30,8 +30,8 @@ def cross_correlate(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
         for column_idx in range(kernel_half_size, kernel_half_size + output_width):
             output_image[row_idx, column_idx] = np.dot(
                 image[
-                row_idx - kernel_half_size: row_idx + kernel_half_size + 1,
-                column_idx - kernel_half_size: column_idx + kernel_half_size + 1,
+                    row_idx - kernel_half_size : row_idx + kernel_half_size + 1,
+                    column_idx - kernel_half_size : column_idx + kernel_half_size + 1,
                 ].flatten(),
                 kernel.flatten(),
             )

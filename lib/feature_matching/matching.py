@@ -1,7 +1,7 @@
-from enum import Enum
-from typing import Callable, List, NewType
 import dataclasses
 import heapq
+from enum import Enum
+from typing import Callable, List, NewType
 
 import numpy as np
 

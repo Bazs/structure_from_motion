@@ -76,7 +76,7 @@ def estimate_essential_mat(
     # Enforce that the [2, 2] element == 1.0
     e /= e[2, 2]
 
-    print(f"Final essential mat: {e}")
+    _logger.info(f"Final essential mat: {e}")
 
     return e
 
@@ -95,14 +95,18 @@ def recover_r_t(
 
     if not np.isclose(0.0, s[-1]):
         raise EightPointCalculationError(
-            "The smallest singluar value of the Essential matrix is expected to be ~0"
+            "The smallest singular value of the Essential matrix is expected to be ~0"
         )
 
     w = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
-    t_1 = u[:, 2]
+    z = np.array([[0, 1, 0], [-1, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=float)
+    t_x = u @ z @ u.T
+    t_1 = np.array([-t_x[1, 2], t_x[0, 2], -t_x[0, 1]])
     t_2 = -t_1
     R_1 = u @ w.T @ vh
     R_2 = u @ w @ vh
+
+    _logger.info(f"t_1:\n{t_1}\nt_2:\n{t_2}R_1:\n{R_1}\nR_2:\n{R_2}")
 
     for R in [R_1, R_2]:
         for t in [t_1, t_2]:

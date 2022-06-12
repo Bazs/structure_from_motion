@@ -1,5 +1,7 @@
 # JetBrains IDEs
 .idea
+# VS Code
+.vscode
 
 # The dataset folder
 data/

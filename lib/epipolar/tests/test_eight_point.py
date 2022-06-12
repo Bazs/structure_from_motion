@@ -4,11 +4,13 @@ import unittest
 import cv2.cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
 from lib.epipolar import eight_point
 from lib.feature_matching.matching import Match
+from lib.transforms import transforms
 
 
 class EightPointTest(unittest.TestCase):
@@ -82,20 +84,18 @@ class EightPointTest(unittest.TestCase):
         ax_3d = fig.add_subplot(131, projection="3d")
         self._plot_world_points(ax_3d, world_t_world_points)
 
-        f = 100.0
-        cam_width_px = 512
+        cam_width_px = 515
         cam_height_px = 256
-        K = np.array(
-            [
-                [f, 0.0, cam_width_px / 2.0],
-                [0.0, f, cam_height_px / 2.0],
-                [0.0, 0.0, 1.0],
-            ]
+        K = self._create_camera_matrix(
+            f=100.0, cam_width_px=cam_width_px, cam_height_px=cam_height_px
         )
 
         world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
         camera1_Rmat_world = np.eye(3, dtype=float)
         camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
+        world_T_world_camera1 = transforms.compose_r_t(
+            camera1_Rmat_world, world_t_world_camera1
+        )
 
         world_t_world_camera2 = np.array([2.5, 0.1, -1.5])
         camera2_R_world = Rotation.from_euler("XY", [-20.0, -50.0], degrees=True)
@@ -157,6 +157,8 @@ class EightPointTest(unittest.TestCase):
 
         np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
+        eight_point.recover_r_t(features_1[0], features_2[0], e)
+
     def test_estimate_essential_matrix_degenerate(self):
         rectangle_width = np.array([1.0, 0.0, 0.0])
         rectangle_height = np.array([0.0, 0.5, 0.0])
@@ -216,13 +218,7 @@ class EightPointTest(unittest.TestCase):
         f = min(f_x, f_y)
 
         # Build the camera intrinsic matrix
-        K = np.array(
-            [
-                [f, 0.0, cam_width_px / 2.0],
-                [0.0, f, cam_height_px / 2.0],
-                [0.0, 0.0, 1.0],
-            ]
-        )
+        K = self._create_camera_matrix(f, cam_width_px, cam_height_px)
 
         world_t_world_allPoints = np.vstack(
             [world_t_world_rectangle_a, world_t_world_rectangle_b]
@@ -310,6 +306,18 @@ class EightPointTest(unittest.TestCase):
         zs = np.array([world_t_world_camera[2], arrow_end[2]])
 
         ax.plot(xs, ys, zs)
+
+    @staticmethod
+    def _create_camera_matrix(
+        f: float, cam_width_px: int, cam_height_px: int
+    ) -> npt.NDArray[np.float]:
+        return np.array(
+            [
+                [f, 0.0, cam_width_px / 2.0],
+                [0.0, f, cam_height_px / 2.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
 
     @staticmethod
     def _plot_camera_points(

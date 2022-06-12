@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation
 from lib.common.feature import Feature
 from lib.epipolar import eight_point
 from lib.feature_matching.matching import Match
-from lib.transforms import transforms
+from lib.transforms.transforms import Transform3D
 
 
 class EightPointTest(unittest.TestCase):
@@ -93,7 +93,7 @@ class EightPointTest(unittest.TestCase):
         world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
         camera1_Rmat_world = np.eye(3, dtype=float)
         camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
-        world_T_world_camera1 = transforms.compose_r_t(
+        world_T_world_camera1 = Transform3D.from_rmat_t(
             camera1_Rmat_world, world_t_world_camera1
         )
 
@@ -101,6 +101,12 @@ class EightPointTest(unittest.TestCase):
         camera2_R_world = Rotation.from_euler("XY", [-20.0, -50.0], degrees=True)
         camera2_Rmat_world = camera2_R_world.as_matrix()
         camera2_Rvec_world, _ = cv.Rodrigues(camera2_Rmat_world)
+        world_T_world_camera2 = Transform3D.from_rmat_t(
+            camera2_Rmat_world, world_t_world_camera2
+        )
+
+        world_T_camera2_camera1 = world_T_world_camera2.inv() * world_T_world_camera1
+        print(world_T_camera2_camera1)
 
         self._plot_camera(ax_3d, world_t_world_camera1, camera1_Rmat_world)
         self._plot_camera(ax_3d, world_t_world_camera2, camera2_Rmat_world)

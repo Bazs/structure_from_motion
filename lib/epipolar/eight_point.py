@@ -102,9 +102,10 @@ def recover_r_t(
     z = np.array([[0, 1, 0], [-1, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=float)
     t_x = u @ z @ u.T
     t_1 = np.array([-t_x[1, 2], t_x[0, 2], -t_x[0, 1]])
-    t_2 = -t_1
     R_1 = u @ w.T @ vh
     R_2 = u @ w @ vh
+
+    return R_1, R_2, t_1
 
     _logger.info(f"t_1:\n{t_1}\nt_2:\n{t_2}R_1:\n{R_1}\nR_2:\n{R_2}")
 

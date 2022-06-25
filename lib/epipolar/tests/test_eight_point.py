@@ -1,7 +1,7 @@
 import logging
 import unittest
 
-import cv2.cv2 as cv
+import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -163,7 +163,13 @@ class EightPointTest(unittest.TestCase):
 
         np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
-        eight_point.recover_r_t(features_1[0], features_2[0], e)
+        R1_cv, R2_cv, t_cv = cv.decomposeEssentialMat(e_cv)
+        t_cv = np.squeeze(t_cv)
+        R1, R2, t = eight_point.recover_r_t(features_1[0], features_2[0], e)
+
+        if not np.allclose(t_cv, t):
+            if not np.allclose(-t_cv, t):
+                self.fail(f"Incorrect translation, expected:\n{t_cv}\nactual:\n{t}")
 
     def test_estimate_essential_matrix_degenerate(self):
         rectangle_width = np.array([1.0, 0.0, 0.0])

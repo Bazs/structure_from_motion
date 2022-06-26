@@ -107,16 +107,16 @@ def recover_r_t(
 
     return R_1, R_2, t_1
 
-    _logger.info(f"t_1:\n{t_1}\nt_2:\n{t_2}R_1:\n{R_1}\nR_2:\n{R_2}")
+    # _logger.info(f"t_1:\n{t_1}\nt_2:\n{t_2}R_1:\n{R_1}\nR_2:\n{R_2}")
 
-    for R in [R_1, R_2]:
-        for t in [t_1, t_2]:
-            x = _triangulate(feature_a, feature_b, R, t)
-            cam2_t_cam2_x = x - t
-            cam2_t_cam2_x = R.T @ cam2_t_cam2_x
-            # TODO check if x is in front of both cameras
+    # for R in [R_1, R_2]:
+    #     for t in [t_1, t_2]:
+    #         x = _triangulate(feature_a, feature_b, R, t)
+    #         cam2_t_cam2_x = x - t
+    #         cam2_t_cam2_x = R.T @ cam2_t_cam2_x
+    #         # TODO check if x is in front of both cameras
 
-    return None, None
+    # return None, None
 
 
 def _get_matching_coordinates(

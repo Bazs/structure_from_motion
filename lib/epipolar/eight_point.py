@@ -93,13 +93,26 @@ def recover_r_t(
     """
     u, s, vh = np.linalg.svd(e)
 
+    det_u = np.linalg.det(u)
+    det_vh = np.linalg.det(vh)
+    if not np.isclose(abs(det_u), 1):
+        raise EightPointCalculationError("U is not a rotation matrix")
+    if not np.isclose(abs(det_vh), 1):
+        raise EightPointCalculationError("V_h is not a rotation matrix")
+
+    # Make rotation matrix sub-components proper if they are improper
+    if np.isclose(-1, det_u):
+        u *= -1
+    if np.isclose(-1, det_vh):
+        vh *= -1
+
     if not np.isclose(0.0, s[-1]):
         raise EightPointCalculationError(
             "The smallest singular value of the Essential matrix is expected to be ~0"
         )
 
     w = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
-    z = np.array([[0, 1, 0], [-1, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=float)
+    z = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 0]], dtype=float)
     t_x = u @ z @ u.T
     t_1 = np.array([-t_x[1, 2], t_x[0, 2], -t_x[0, 1]])
     R_1 = u @ w.T @ vh

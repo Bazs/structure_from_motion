@@ -167,9 +167,26 @@ class EightPointTest(unittest.TestCase):
         t_cv = np.squeeze(t_cv)
         R1, R2, t = eight_point.recover_r_t(features_1[0], features_2[0], e)
 
-        if not np.allclose(t_cv, t):
-            if not np.allclose(-t_cv, t):
+        def _allclose(expected: npt.NDArray, actual: npt.NDArray):
+            ABSOLUTE_TOLERANCE = 1e-4
+            return np.allclose(expected, actual, atol=ABSOLUTE_TOLERANCE)
+
+        if not _allclose(t_cv, t):
+            if not _allclose(-t_cv, t):
                 self.fail(f"Incorrect translation, expected:\n{t_cv}\nactual:\n{t}")
+
+        rotmat_comparison_failure_message = (
+            f"Incorrect estimates for rotation matrices. Expected:\n{R1_cv}\nand\n{R2_cv}\n"
+            f"Actual:\n{R1}\nand\n{R2}"
+        )
+        if _allclose(R1_cv, R1):
+            if not _allclose(R2_cv, R2):
+                self.fail(rotmat_comparison_failure_message)
+        elif _allclose(R2_cv, R1):
+            if not _allclose(R1_cv, R2):
+                self.fail(rotmat_comparison_failure_message)
+        else:
+            self.fail(rotmat_comparison_failure_message)
 
     def test_estimate_essential_matrix_degenerate(self):
         rectangle_width = np.array([1.0, 0.0, 0.0])

@@ -8,6 +8,11 @@ Question in section 4.8
 in [Introduction to Autonomous Mobile Robots, Second Edition](https://mitpress.mit.edu/books/introduction-autonomous-mobile-robots-second-edition)
 .
 
+## Requirements
+
+* GNU Make 4.1+
+* Python 3.10 - install `requirements.txt`
+
 ## Sources
 
 Besides the Autonomous Mobile Robots book, I used several other sources to implement the various steps of the vision

@@ -1,4 +1,5 @@
 import logging
+from math import dist
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -16,6 +17,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s %(filename)s:%(lineno)s\t %(message)s",
 )
+
+
+_CAM_WIDTH_PX = 512
+_CAM_HEIGHT_PX = 256
 
 
 def test_get_matching_coordinates():
@@ -76,7 +81,14 @@ def test_get_y_col():
     np.testing.assert_allclose(expected_y_col, y_col)
 
 
-def test_estimate_essential_matrix():
+@pytest.fixture
+def camera_intrinsic_matrix() -> npt.NDArray:
+    return _create_camera_matrix(
+        f=100.0, cam_width_px=_CAM_WIDTH_PX, cam_height_px=_CAM_HEIGHT_PX
+    )
+
+
+def test_estimate_essential_matrix(camera_intrinsic_matrix):
     rng = np.random.default_rng(seed=5)
     NUM_POINTS = 8
     world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
@@ -85,11 +97,7 @@ def test_estimate_essential_matrix():
     ax_3d = fig.add_subplot(131, projection="3d")
     _plot_world_points(ax_3d, world_t_world_points)
 
-    cam_width_px = 515
-    cam_height_px = 256
-    K = _create_camera_matrix(
-        f=100.0, cam_width_px=cam_width_px, cam_height_px=cam_height_px
-    )
+    K = camera_intrinsic_matrix
 
     world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
     camera1_Rmat_world = np.eye(3, dtype=float)
@@ -131,11 +139,11 @@ def test_estimate_essential_matrix():
 
     cam1_ax = fig.add_subplot(132)
     _plot_camera_points(
-        cam1_ax, cam1_points, cam_width_px, cam_height_px, mode="scatter"
+        cam1_ax, cam1_points, _CAM_WIDTH_PX, _CAM_HEIGHT_PX, mode="scatter"
     )
     cam2_ax = fig.add_subplot(133)
     _plot_camera_points(
-        cam2_ax, cam2_points, cam_width_px, cam_height_px, mode="scatter"
+        cam2_ax, cam2_points, _CAM_WIDTH_PX, _CAM_HEIGHT_PX, mode="scatter"
     )
 
     # plt.show()
@@ -286,6 +294,85 @@ def test_estimate_essential_matrix_degenerate():
             features_2,
             matches,
         )
+
+
+def test_triangulate(camera_intrinsic_matrix):
+    world_t_world_point = np.array([0.0, 0.0, 10.0])
+
+    fig = plt.figure()
+    ax_3d = fig.add_subplot(131, projection="3d")
+    _plot_world_points(ax_3d, world_t_world_point.reshape((1, 3)))
+
+    K = camera_intrinsic_matrix
+
+    world_t_world_cam1 = np.array([0.0, 0.0, 5.0])
+    world_R_cam1 = np.eye(3, dtype=float)
+    cam1_Rvec_world, _ = cv.Rodrigues(world_R_cam1.T)
+    cam1_T_world = Transform3D.from_rmat_t(world_R_cam1.T, -world_t_world_cam1).Tmat
+
+    _plot_camera(ax_3d, world_t_world_cam1, world_R_cam1.T)
+
+    world_t_world_cam2 = np.array([3.0, 0.0, 5.0])
+    world_R_cam2 = Rotation.from_euler(
+        "XYZ", [0.0, 30.0, 0.0], degrees=True
+    ).as_matrix()
+    cam2_Rvec_world, _ = cv.Rodrigues(world_R_cam2.T)
+    cam2_T_world = Transform3D.from_rmat_t(world_R_cam2.T, -world_t_world_cam2).Tmat
+    _plot_camera(ax_3d, world_t_world_cam2, world_R_cam2.T)
+
+    cam1_point, _ = cv.projectPoints(
+        world_t_world_point.reshape((1, 3)),
+        cam1_Rvec_world,
+        -world_t_world_cam1,
+        K,
+        distCoeffs=None,
+    )
+    cam1_point = cam1_point.reshape((1, 2))
+    cam1_ax = fig.add_subplot(132)
+    _plot_camera_points(
+        cam1_ax,
+        cam1_point,
+        cam_width=_CAM_WIDTH_PX,
+        cam_height=_CAM_HEIGHT_PX,
+        mode="scatter",
+    )
+    cam2_point, _ = cv.projectPoints(
+        world_t_world_point.reshape((1, 3)),
+        cam2_Rvec_world,
+        -world_t_world_cam2,
+        K,
+        distCoeffs=None,
+    )
+    cam2_point = cam2_point.reshape((1, 2))
+    cam2_ax = fig.add_subplot(133)
+    _plot_camera_points(
+        cam2_ax,
+        cam2_point,
+        cam_width=_CAM_WIDTH_PX,
+        cam_height=_CAM_HEIGHT_PX,
+        mode="scatter",
+    )
+
+    feature_a = Feature(x=cam1_point[0, 0], y=cam1_point[0, 1])
+    feature_b = Feature(x=cam2_point[0, 0], y=cam2_point[0, 1])
+
+    # Pad the intrinsic matrix and calculate the intrinsic+extrinsic camera matrices.
+    K_ext = np.hstack((K, np.zeros((3, 1))))
+    P1 = K_ext @ cam1_T_world
+    P2 = K_ext @ cam2_T_world
+
+    # Sanity check that P1 is the correct camera matrix by projecting the point
+    # with it and cross referencing the OpenCV projection result.
+    cam1_point_check = P1 @ np.vstack(
+        (world_t_world_point.reshape((3, 1)), np.array([[1.0]]))
+    )
+    cam1_point_check = (cam1_point_check / cam1_point_check[2])[:-1]
+    np.testing.assert_almost_equal(cam1_point.reshape(-1), cam1_point_check.reshape(-1))
+
+    eight_point._triangulate(feature_a, feature_b, P1, P2)
+    # TODO compare with OpenCV result
+
+    # plt.show()
 
 
 def _rotate_rectangle(

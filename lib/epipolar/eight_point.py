@@ -3,10 +3,12 @@ from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
+import numpy.typing as npt
 from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
 from lib.feature_matching.matching import Match
+from lib.transforms.transforms import Transform3D
 
 _logger = logging.getLogger(Path(__file__).stem)
 
@@ -119,17 +121,6 @@ def recover_r_t(
     R_2 = u @ w @ vh
 
     return R_1, R_2, t_1
-
-    # _logger.info(f"t_1:\n{t_1}\nt_2:\n{t_2}R_1:\n{R_1}\nR_2:\n{R_2}")
-
-    # for R in [R_1, R_2]:
-    #     for t in [t_1, t_2]:
-    #         x = _triangulate(feature_a, feature_b, R, t)
-    #         cam2_t_cam2_x = x - t
-    #         cam2_t_cam2_x = R.T @ cam2_t_cam2_x
-    #         # TODO check if x is in front of both cameras
-
-    # return None, None
 
 
 def _get_matching_coordinates(
@@ -288,24 +279,35 @@ def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
 
 
 def _triangulate(
-    feature_a: Feature, feature_b: Feature, Rmat: np.ndarray, t: np.ndarray
-) -> np.ndarray:
+    feature_a: Feature, feature_b: Feature, P1: npt.NDArray, P2: npt.NDArray
+) -> npt.NDArray:
+    """Triangulate the 3D world position of the point corresponding to the matching
+    feature pair in two different camera poses.
+
+    Args:
+        feature_a: The projection of the world point onto the first camera.
+        feature_b: The projection of the world point onto the second camera.
+        P1: The intrinsic+extrinsic 3x4 camera matrix of the first camera.
+        P2: The intrinsic+extrinsic 3x4 camera matrix of the second camera.
+    Returns:
+        The 3D position of the point as an 1x3 array.
+    """
     u1 = feature_a.x
     v1 = feature_a.y
 
     u2 = feature_b.x
     v2 = feature_b.y
 
-    r1 = Rmat[0, :]
-    r2 = Rmat[1, :]
-    r3 = Rmat[2, :]
+    A = np.array(
+        [
+            [feature_a.y * P1[2, :] - P1[1, :]],
+            [P1[0, :] - feature_a.x * P1[2, :]],
+            [feature_b.y * P2[2, :] - P2[1, :]],
+            [P2[0, :] - feature_b.x * P2[2, :]],
+        ]
+    ).squeeze()
 
-    y = np.array([u1, v1, 1.0], dtype=np.float64)
+    u, s, vh = np.linalg.svd(A)
 
-    x3_a = np.dot(r1 - u2 * r3, t) / np.dot(r1 - u2 * r3, y)
-    x3_b = np.dot(r2 - v2 * r3, t) / np.dot(r2 - v2 * r3, y)
-    x3 = np.mean([x3_a, x3_b])
-    x1 = x3 * u1
-    x2 = x3 * v1
-
-    return np.array([x1, x2, x3], dtype=np.float64)
+    # TODO return the result which is the right singular vector corresponding
+    # to the smallest singular value of A.

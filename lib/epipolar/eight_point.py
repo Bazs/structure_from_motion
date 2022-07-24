@@ -1,3 +1,4 @@
+import itertools
 import logging
 from pathlib import Path
 from typing import List, Tuple
@@ -24,15 +25,17 @@ def estimate_r_t(
     features_b: List[Feature],
     matches: List[Match],
 ):
-    """Estimates rotation and translation up to a scale based on eight feature matches between two images.
+    """Estimate rotation and translation up to a scale based on eight feature matches between two images.
 
     Uses the Eight-Point algorithm to estimate the Essential matrix, then decomposes the Essential matrix
     into rotation and translation up to a scale.
 
-    @param features_a List of features from the first image.
-    @param features_b List of features from the second image.
-    @param matches Exactly eight matches between features_a and features_b.
-    @return: Tuple of cam2_R_cam1, cam2_t_cam2_cam1.
+    Args:
+        features_a: List of features from the first image.
+        features_b: List of features from the second image.
+        matches: Exactly eight matches between features_a and features_b.
+    Returns:
+        Tuple of cam2_R_cam1, cam2_t_cam2_cam1.
     """
     if not features_a or not features_b:
         raise ValueError("Need some matching features")
@@ -43,7 +46,7 @@ def estimate_r_t(
     match = next(match for match in matches if match.a_index == 0)
     feature_b = features_b[match.b_index]
 
-    r, t = recover_r_t(feature_a, feature_b, e)
+    r, t = _recover_all_r_t(feature_a, feature_b, e)
 
     return r, t
 
@@ -54,12 +57,14 @@ def estimate_essential_mat(
     matches: List[Match],
 ) -> np.ndarray:
     """
-    Estimates the Essential Matrix from eight point correspondences.
+    Estimate the Essential Matrix from eight point correspondences.
 
-    @param features_a List of features from the first image.
-    @param features_b List of features from the second image.
-    @param matches Exactly eight matches between features_a and features_b.
-    @return The 3x3 Essential Matrix (https://en.wikipedia.org/wiki/Essential_matrix).
+    Args:
+        features_a: List of features from the first image.
+        features_b: List of features from the second image.
+        matches: Exactly eight matches between features_a and features_b.
+    Returns:
+        The 3x3 Essential Matrix (https://en.wikipedia.org/wiki/Essential_matrix).
     """
     if 8 != len(matches):
         raise ValueError("Exactly eight matches are needed")
@@ -83,15 +88,34 @@ def estimate_essential_mat(
     return e
 
 
-def recover_r_t(
-    feature_a: Feature, feature_b: Feature, e: np.ndarray
-) -> Tuple[Rotation, np.ndarray]:
-    """Recover the rotation, and the translation up to a scale from an Essential matrix.
+def _recover_r_t(feature_a: Feature, feature_b: Feature, e: np.ndarray):
+    """Recover the rotation and translation up to a scale from an Essential matrix.
 
-    @param feature_a A feature point from the first image.
-    @param feature_b Corresponding feature point from the second image.
-    @param e essential matrix.
-    @return Tuple of rotation, translation.
+    Args:
+        feature_a: A feature point from the first image.
+        feature_b: Corresponding feature point from the second image.
+        e: essential matrix.
+    Returns:
+        Tuple of (cam2_R_cam1, cam2_t_cam2_cam1)
+    """
+    cam2_R_cam1_1, cam2_R_cam1_2, cam2_t_cam2_cam1_1 = _recover_all_r_t(e)
+    for cam2_R_cam1, cam2_t_cam2_cam1 in itertools.product(
+        [cam2_R_cam1_1, cam2_R_cam1_2], [cam2_t_cam2_cam1_1, -cam2_t_cam2_cam1_1]
+    ):
+        if _cheirality_check(feature_a, feature_b, cam2_R_cam1, cam2_t_cam2_cam1):
+            return cam2_R_cam1, cam2_t_cam2_cam1
+    raise EightPointCalculationError(
+        "None of the transformations pass the cheirality check."
+    )
+
+
+def _recover_all_r_t(e: np.ndarray) -> Tuple[Rotation, np.ndarray]:
+    """Recover two possible rotations and one of the possible translations up to a scale from an Essential matrix.
+
+    Args:
+        e: essential matrix.
+    Returns:
+        Tuple of (cam2_R_cam1_1, cam2_R_cam1_2, cam2_t_cam2_cam1_1)
     """
     u, s, vh = np.linalg.svd(e)
 
@@ -129,10 +153,12 @@ def _get_matching_coordinates(
     """Get two lists of matching image coordinates based on lists of features from
     both images and a list of matches.
 
-    :param features_a: Features from image A.
-    :param features_b: Features from image B.
-    :param matches: List of matches between image A and B.
-    :return: Two Nx2 matrices of corresponding image coordinates.
+    Args:
+       features_a: Features from image A.
+       features_b: Features from image B.
+       matches: List of matches between image A and B.
+    Returns:
+        Two Nx2 matrices of corresponding image coordinates.
     """
     coords_a = np.empty((len(matches), 2), dtype=np.float64)
     coords_b = np.empty((len(matches), 2), dtype=np.float64)
@@ -152,8 +178,10 @@ def _normalize_coords(coords: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
     Return the inverse normalization transformation.
 
-    :param coords: Coordinates from an image.
-    :return: Tuple of [normalized coordinates, inverse transformation].
+    Args:
+        coords: Coordinates from an image.
+    Returns:
+        Tuple of [normalized coordinates, inverse transformation].
     """
 
     centroid = np.mean(coords, axis=0)
@@ -187,10 +215,12 @@ def _get_normalized_match_coordinates(
 
     Also compute the inverse of the normalization transformations.
 
-    @param features_a List of features from the first image.
-    @param features_b List of features from the second image.
-    @param matches N matches between features_a and features_b.
-    @return Tuple of [normalized coords a (Nx2 matrix), inverse transformation T1,
+    Args:
+        features_a List of features from the first image.
+        features_b List of features from the second image.
+        matches N matches between features_a and features_b.
+    Returns:
+        Tuple of [normalized coords a (Nx2 matrix), inverse transformation T1,
         corresponding normalized coords b (Nx2) matrix, inverse transformation T2]
     """
     coords_a, coords_b = _get_matching_coordinates(features_a, features_b, matches)
@@ -235,9 +265,12 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
     Estimates the essential matrix from the Y matrix.
     (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_2:_Solving_the_equation)
 
-    @param yT_y The Y matrix, constructed from eight matching normalized coordinate pairs.
-    @return An estimate of the Essential matrix, not necessarily of rank 2.
-    @raise EightPointCalculationError If the Essential matrix cannot be estimated.
+    Args:
+        yT_y The Y matrix, constructed from eight matching normalized coordinate pairs.
+    Returns:
+        An estimate of the Essential matrix, not necessarily of rank 2.
+    Raises:
+        EightPointCalculationError If the Essential matrix cannot be estimated.
     """
     assert (9, 9) == yT_y.shape
 
@@ -263,11 +296,13 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
 
 def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
     """
-    Creates E' from the estimated E matrix, enforcing that rank(E') == 2.
+    Create E' from the estimated E matrix, enforcing that rank(E') == 2.
     (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_3:_Enforcing_the_internal_constraint)
 
-    @param e_est Estimated Essential matrix.
-    @return Essential matrix fulfilling the internal constraints.
+    Args:
+        e_est Estimated Essential matrix.
+    Returns:
+        Essential matrix fulfilling the internal constraints.
     """
     u, s, vh = np.linalg.svd(e_est)
     _logger.debug(f"Singular values of E_est: {s}")
@@ -290,14 +325,8 @@ def _triangulate(
         P1: The intrinsic+extrinsic 3x4 camera matrix of the first camera.
         P2: The intrinsic+extrinsic 3x4 camera matrix of the second camera.
     Returns:
-        The 3D position of the point as an 1x3 array.
+        The 3D position of the point as a vector.
     """
-    u1 = feature_a.x
-    v1 = feature_a.y
-
-    u2 = feature_b.x
-    v2 = feature_b.y
-
     A = np.array(
         [
             [feature_a.y * P1[2, :] - P1[1, :]],
@@ -307,7 +336,36 @@ def _triangulate(
         ]
     ).squeeze()
 
-    u, s, vh = np.linalg.svd(A)
+    # The best estimate for the 3D position is the right singular vector of A corresponding to the smallest singular
+    # value.
+    _, _, vh = np.linalg.svd(A)
+    x = vh[-1, :]
 
-    # TODO return the result which is the right singular vector corresponding
-    # to the smallest singular value of A.
+    # Convert back from homogeneous coordinates.
+    x = (x / x[-1])[:-1]
+    return x
+
+
+def _cheirality_check(
+    feature_a: Feature,
+    feature_b: Feature,
+    cam2_R_cam1: npt.NDArray,
+    cam2_t_cam2_cam1: npt.NDArray,
+    z_axis_index: int = 2,
+) -> bool:
+    """Return whether the transformation between the two camera poses places the feature in front both of the
+    cameras."""
+    # Place the first camera into the world frame's origin.
+    P1 = Transform3D.from_rmat_t(
+        np.eye(3, dtype=float), np.zeros((3,), dtype=float)
+    ).Tmat
+    P2 = Transform3D.from_rmat_t(cam2_R_cam1, cam2_t_cam2_cam1).Tmat
+    cam1_t_cam1_feature = _triangulate(feature_a, feature_b, P1, P2)
+    cam2_t_cam2_feature = (P2 @ [*cam1_t_cam1_feature, 1])[:-1]
+    TOLERANCE = 1e-8
+    if np.all(
+        np.array([cam1_t_cam1_feature[z_axis_index], cam2_t_cam2_feature[z_axis_index]])
+        >= (0 - TOLERANCE)
+    ):
+        return True
+    return False

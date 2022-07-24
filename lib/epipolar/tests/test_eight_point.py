@@ -174,7 +174,7 @@ def test_estimate_essential_matrix(camera_intrinsic_matrix):
 
     R1_cv, R2_cv, t_cv = cv.decomposeEssentialMat(e_cv)
     t_cv = np.squeeze(t_cv)
-    R1, R2, t = eight_point.recover_r_t(features_1[0], features_2[0], e)
+    R1, R2, t = eight_point._recover_all_r_t(e)
 
     def _allclose(expected: npt.NDArray, actual: npt.NDArray):
         ABSOLUTE_TOLERANCE = 1e-4
@@ -196,6 +196,8 @@ def test_estimate_essential_matrix(camera_intrinsic_matrix):
             pytest.fail(rotmat_comparison_failure_message)
     else:
         pytest.fail(rotmat_comparison_failure_message)
+
+    # eight_point._recover_r_t(features_1[0], features_2[0], e)
 
 
 def test_estimate_essential_matrix_degenerate():
@@ -369,8 +371,12 @@ def test_triangulate(camera_intrinsic_matrix):
     cam1_point_check = (cam1_point_check / cam1_point_check[2])[:-1]
     np.testing.assert_almost_equal(cam1_point.reshape(-1), cam1_point_check.reshape(-1))
 
-    eight_point._triangulate(feature_a, feature_b, P1, P2)
-    # TODO compare with OpenCV result
+    world_t_world_point_estimated = eight_point._triangulate(
+        feature_a, feature_b, P1, P2
+    )
+    np.testing.assert_allclose(
+        world_t_world_point, world_t_world_point_estimated, atol=1e-10, rtol=0
+    )
 
     # plt.show()
 

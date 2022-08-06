@@ -356,9 +356,7 @@ def _cheirality_check(
     """Return whether the transformation between the two camera poses places the feature in front both of the
     cameras."""
     # Place the first camera into the world frame's origin.
-    P1 = Transform3D.from_rmat_t(
-        np.eye(3, dtype=float), np.zeros((3,), dtype=float)
-    ).Tmat
+    P1 = Transform3D.identity().Tmat
     P2 = Transform3D.from_rmat_t(cam2_R_cam1, cam2_t_cam2_cam1).Tmat
     cam1_t_cam1_feature = _triangulate(feature_a, feature_b, P1, P2)
     cam2_t_cam2_feature = (P2 @ [*cam1_t_cam1_feature, 1])[:-1]

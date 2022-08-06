@@ -29,6 +29,10 @@ class Transform3D:
 
         return cls(affines.compose(t, rmat, np.ones(3)))
 
+    @classmethod
+    def identity(cls) -> Transform3D:
+        return cls.from_rmat_t(np.eye(3, dtype=float), np.zeros((3,), dtype=float))
+
     @property
     def Tmat(self):
         return self._Tmat

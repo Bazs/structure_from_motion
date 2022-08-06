@@ -1,5 +1,4 @@
 import logging
-from math import dist
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -88,68 +87,68 @@ def camera_intrinsic_matrix() -> npt.NDArray:
     )
 
 
-def test_estimate_essential_matrix(camera_intrinsic_matrix):
-    rng = np.random.default_rng(seed=5)
-    NUM_POINTS = 8
-    world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
+class EightPointFixture:
+    def __init__(self, camera_intrinsic_matrix: npt.NDArray):
+        rng = np.random.default_rng(seed=5)
+        NUM_POINTS = 8
+        self.world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
+        K = camera_intrinsic_matrix
+
+        self.world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
+        self.camera1_Rmat_world = np.eye(3, dtype=float)
+        camera1_Rvec_world, _ = cv.Rodrigues(self.camera1_Rmat_world)
+
+        self.world_t_world_camera2 = np.array([2.5, 0.1, -1.5])
+        camera2_R_world = Rotation.from_euler("XY", [-20.0, -50.0], degrees=True)
+        self.camera2_Rmat_world = camera2_R_world.as_matrix()
+        camera2_Rvec_world, _ = cv.Rodrigues(self.camera2_Rmat_world)
+
+        self.cam1_points, _ = cv.projectPoints(
+            self.world_t_world_points,
+            camera1_Rvec_world,
+            -self.world_t_world_camera1,
+            K,
+            None,
+        )
+        self.cam1_points = self.cam1_points.squeeze()
+        self.cam2_points, _ = cv.projectPoints(
+            self.world_t_world_points,
+            camera2_Rvec_world,
+            -self.world_t_world_camera2,
+            K,
+            None,
+        )
+        self.cam2_points = self.cam2_points.squeeze()
+
+
+@pytest.fixture
+def eight_point_fixture(camera_intrinsic_matrix) -> EightPointFixture:
+    return EightPointFixture(camera_intrinsic_matrix)
+
+
+def test_estimate_essential_matrix(eight_point_fixture):
+    fixture = eight_point_fixture
 
     fig = plt.figure()
     ax_3d = fig.add_subplot(131, projection="3d")
-    _plot_world_points(ax_3d, world_t_world_points)
+    _plot_world_points(ax_3d, fixture.world_t_world_points)
 
-    K = camera_intrinsic_matrix
-
-    world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
-    camera1_Rmat_world = np.eye(3, dtype=float)
-    camera1_Rvec_world, _ = cv.Rodrigues(camera1_Rmat_world)
-    world_T_world_camera1 = Transform3D.from_rmat_t(
-        camera1_Rmat_world, world_t_world_camera1
-    )
-
-    world_t_world_camera2 = np.array([2.5, 0.1, -1.5])
-    camera2_R_world = Rotation.from_euler("XY", [-20.0, -50.0], degrees=True)
-    camera2_Rmat_world = camera2_R_world.as_matrix()
-    camera2_Rvec_world, _ = cv.Rodrigues(camera2_Rmat_world)
-    world_T_world_camera2 = Transform3D.from_rmat_t(
-        camera2_Rmat_world, world_t_world_camera2
-    )
-
-    world_T_camera2_camera1 = world_T_world_camera2.inv() * world_T_world_camera1
-    print(world_T_camera2_camera1)
-
-    _plot_camera(ax_3d, world_t_world_camera1, camera1_Rmat_world)
-    _plot_camera(ax_3d, world_t_world_camera2, camera2_Rmat_world)
-
-    cam1_points, _ = cv.projectPoints(
-        world_t_world_points,
-        camera1_Rvec_world,
-        -world_t_world_camera1,
-        K,
-        None,
-    )
-    cam1_points = cam1_points.squeeze()
-    cam2_points, _ = cv.projectPoints(
-        world_t_world_points,
-        camera2_Rvec_world,
-        -world_t_world_camera2,
-        K,
-        None,
-    )
-    cam2_points = cam2_points.squeeze()
+    _plot_camera(ax_3d, fixture.world_t_world_camera1, fixture.camera1_Rmat_world)
+    _plot_camera(ax_3d, fixture.world_t_world_camera2, fixture.camera2_Rmat_world)
 
     cam1_ax = fig.add_subplot(132)
     _plot_camera_points(
-        cam1_ax, cam1_points, _CAM_WIDTH_PX, _CAM_HEIGHT_PX, mode="scatter"
+        cam1_ax, fixture.cam1_points, _CAM_WIDTH_PX, _CAM_HEIGHT_PX, mode="scatter"
     )
     cam2_ax = fig.add_subplot(133)
     _plot_camera_points(
-        cam2_ax, cam2_points, _CAM_WIDTH_PX, _CAM_HEIGHT_PX, mode="scatter"
+        cam2_ax, fixture.cam2_points, _CAM_WIDTH_PX, _CAM_HEIGHT_PX, mode="scatter"
     )
 
     # plt.show()
 
-    features_1 = [Feature(x=point[0], y=point[1]) for point in cam1_points]
-    features_2 = [Feature(x=point[0], y=point[1]) for point in cam2_points]
+    features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
+    features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
     matches = [
         Match(a_index=index, b_index=index, match_score=0.0)
         for index in range(len(features_1))
@@ -379,6 +378,12 @@ def test_triangulate(camera_intrinsic_matrix):
     )
 
     # plt.show()
+
+
+def test_cheirality_check():
+    # TODO use eight_point_fixture, estimate an essential matrix, check that cheirality check
+    # returns only one solution as valid
+    pass
 
 
 def _rotate_rectangle(

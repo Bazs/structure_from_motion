@@ -21,6 +21,7 @@ class EightPointCalculationError(Exception):
 
 
 def estimate_r_t(
+    camera_matrix: npt.NDArray,
     features_a: List[Feature],
     features_b: List[Feature],
     matches: List[Match],
@@ -31,6 +32,7 @@ def estimate_r_t(
     into rotation and translation up to a scale.
 
     Args:
+        camera_matrix: The camera intrinsic matrix.
         features_a: List of features from the first image.
         features_b: List of features from the second image.
         matches: Exactly eight matches between features_a and features_b.
@@ -40,7 +42,12 @@ def estimate_r_t(
     if not features_a or not features_b:
         raise ValueError("Need some matching features")
 
-    e = estimate_essential_mat(features_a, features_b, matches)
+    e = estimate_essential_mat(
+        camera_matrix=camera_matrix,
+        features_a=features_a,
+        features_b=features_b,
+        matches=matches,
+    )
 
     feature_a = features_a[0]
     match = next(match for match in matches if match.a_index == 0)
@@ -52,19 +59,58 @@ def estimate_r_t(
 
 
 def estimate_essential_mat(
+    *,
+    camera_matrix: npt.NDArray,
+    features_a: List[Feature],
+    features_b: List[Feature],
+    matches: List[Match],
+):
+    """Estimate the Essential Matrix from eight point correspondences and camera intrinsic matrix.
+
+    Args:
+        camera_matrix: The camera intrinsic matrix.
+        features_a: List of features from the first image.
+        features_b: List of features from the second image.
+        matches: Exactly eight matches between features_a and features_b.
+    Returns:
+        The 3x3 Essential Matrix (https://en.wikipedia.org/wiki/Essential_matrix)."""
+    features_a = [
+        _to_normalized_image_coords(feature, camera_matrix) for feature in features_a
+    ]
+    features_b = [
+        _to_normalized_image_coords(feature, camera_matrix) for feature in features_b
+    ]
+    e = estimate_fundamental_mat(
+        features_a=features_a, features_b=features_b, matches=matches
+    )
+    return e
+
+
+def _to_normalized_image_coords(
+    feature: Feature, camera_matrix: npt.NDArray
+) -> Feature:
+    """Calculate the normalized image coordinates from pixel coordinates and the intrinsic camera parameters."""
+    f_x = camera_matrix[0][0]
+    f_y = camera_matrix[1][1]
+    c_x = camera_matrix[0][2]
+    c_y = camera_matrix[1][2]
+    return Feature(x=(feature.x - c_x) / f_x, y=(feature.y - c_y) / f_y)
+
+
+def estimate_fundamental_mat(
     features_a: List[Feature],
     features_b: List[Feature],
     matches: List[Match],
 ) -> np.ndarray:
     """
-    Estimate the Essential Matrix from eight point correspondences.
+    Estimate the Fundamental Matrix from eight point correspondences using the Eight-point algorithm.
 
     Args:
         features_a: List of features from the first image.
         features_b: List of features from the second image.
         matches: Exactly eight matches between features_a and features_b.
     Returns:
-        The 3x3 Essential Matrix (https://en.wikipedia.org/wiki/Essential_matrix).
+        The 3x3 Fundamental Matrix (https://en.wikipedia.org/wiki/Fundamental_matrix_(computer_vision)).
     """
     if 8 != len(matches):
         raise ValueError("Exactly eight matches are needed")
@@ -74,16 +120,16 @@ def estimate_essential_mat(
     )
 
     yT_y = _get_yT_y(coords_a, coords_b)
-    e_est = _compute_e_est(yT_y)
-    e = _enforce_essential_mat_constraints(e_est)
+    e_est = _compute_f_est(yT_y)
+    e = _enforce_fundamental_mat_constraints(e_est)
 
-    # Apply the inverse transformation to un-normalize the essential matrix
+    # Apply the inverse transformation to un-normalize the fundamental matrix
     e = T2.T @ e @ T1
 
     # Enforce that the [2, 2] element == 1.0
     e /= e[2, 2]
 
-    _logger.info(f"Final essential mat: {e}")
+    _logger.info(f"Final fundamental mat: {e}")
 
     return e
 
@@ -260,17 +306,17 @@ def _get_y_col(coord_a: np.ndarray, coord_b: np.ndarray):
     return y_col
 
 
-def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
+def _compute_f_est(yT_y: np.ndarray) -> np.ndarray:
     """
-    Estimates the essential matrix from the Y matrix.
+    Estimates the fundamental matrix from the Y matrix.
     (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_2:_Solving_the_equation)
 
     Args:
         yT_y The Y matrix, constructed from eight matching normalized coordinate pairs.
     Returns:
-        An estimate of the Essential matrix, not necessarily of rank 2.
+        An estimate of the fundamental matrix, not necessarily of rank 2.
     Raises:
-        EightPointCalculationError If the Essential matrix cannot be estimated.
+        EightPointCalculationError If the fundamental matrix cannot be estimated.
     """
     assert (9, 9) == yT_y.shape
 
@@ -284,33 +330,33 @@ def _compute_e_est(yT_y: np.ndarray) -> np.ndarray:
     if np.any(sorted_w[1:] <= VERY_SMALL):
         raise EightPointCalculationError(
             "More than one eigenvalue of Y.T @ Y is small. Cannot confidently estimate"
-            " essential matrix."
+            " fundamental matrix."
         )
 
     min_index = np.argmin(np.abs(w))
     v_min = v[:, min_index]
-    e_est = v_min.reshape((3, 3))
+    f_est = v_min.reshape((3, 3))
 
-    return e_est
+    return f_est
 
 
-def _enforce_essential_mat_constraints(e_est: np.ndarray) -> np.ndarray:
+def _enforce_fundamental_mat_constraints(f_est: np.ndarray) -> np.ndarray:
     """
-    Create E' from the estimated E matrix, enforcing that rank(E') == 2.
+    Create F' from the estimated F matrix, enforcing that rank(F') == 2.
     (https://en.wikipedia.org/wiki/Eight-point_algorithm#Step_3:_Enforcing_the_internal_constraint)
 
     Args:
-        e_est Estimated Essential matrix.
+        e_est Estimated Fundamental Matrix.
     Returns:
-        Essential matrix fulfilling the internal constraints.
+        Fundamental Matrix fulfilling the internal constraints.
     """
-    u, s, vh = np.linalg.svd(e_est)
-    _logger.debug(f"Singular values of E_est: {s}")
+    u, s, vh = np.linalg.svd(f_est)
+    _logger.debug(f"Singular values of F_est: {s}")
     # Set the smallest singular value of E_est to 0
     s[2] = 0.0
     s_prime = np.diag(s)
-    e = u @ s_prime @ vh
-    return e
+    f = u @ s_prime @ vh
+    return f
 
 
 def _triangulate(

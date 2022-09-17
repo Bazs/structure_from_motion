@@ -87,12 +87,26 @@ def camera_intrinsic_matrix() -> npt.NDArray:
     )
 
 
+def test_to_normalized_image_coords(camera_intrinsic_matrix: npt.NDArray):
+    feature = Feature(x=50, y=60)
+    normalized_feature = eight_point._to_normalized_image_coords(
+        feature, camera_intrinsic_matrix
+    )
+    expected_coord = np.linalg.inv(camera_intrinsic_matrix) @ np.array(
+        [feature.x, feature.y, 1.0]
+    ).reshape(3, 1)
+    expected_coord /= expected_coord[-1]
+    expected_coord = expected_coord[:2, :].reshape(-1)
+    expected_feature = Feature(x=expected_coord[0], y=expected_coord[1])
+    assert expected_feature == normalized_feature
+
+
 class EightPointFixture:
     def __init__(self, camera_intrinsic_matrix: npt.NDArray):
         rng = np.random.default_rng(seed=5)
         NUM_POINTS = 8
         self.world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
-        K = camera_intrinsic_matrix
+        self.K = camera_intrinsic_matrix
 
         self.world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
         self.camera1_Rmat_world = np.eye(3, dtype=float)
@@ -107,7 +121,7 @@ class EightPointFixture:
             self.world_t_world_points,
             camera1_Rvec_world,
             -self.world_t_world_camera1,
-            K,
+            self.K,
             None,
         )
         self.cam1_points = self.cam1_points.squeeze()
@@ -115,7 +129,7 @@ class EightPointFixture:
             self.world_t_world_points,
             camera2_Rvec_world,
             -self.world_t_world_camera2,
-            K,
+            self.K,
             None,
         )
         self.cam2_points = self.cam2_points.squeeze()
@@ -126,7 +140,7 @@ def eight_point_fixture(camera_intrinsic_matrix) -> EightPointFixture:
     return EightPointFixture(camera_intrinsic_matrix)
 
 
-def test_estimate_essential_matrix(eight_point_fixture):
+def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
     fixture = eight_point_fixture
 
     fig = plt.figure()
@@ -153,7 +167,7 @@ def test_estimate_essential_matrix(eight_point_fixture):
         Match(a_index=index, b_index=index, match_score=0.0)
         for index in range(len(features_1))
     ]
-    e = eight_point.estimate_essential_mat(
+    f = eight_point.estimate_fundamental_mat(
         features_1,
         features_2,
         matches,
@@ -164,16 +178,28 @@ def test_estimate_essential_matrix(eight_point_fixture):
     )
     np.set_printoptions(precision=20)
     logging.info(
-        f"Input coords for findFundamenalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
+        f"Input coords for findFundamentalMat:\ncoords_a:\n{coords_a}\ncoords_b:\n{coords_b}"
     )
-    e_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
-    logging.info(f"OpenCV estimated essential mat: {e_cv}")
+    f_cv, _ = cv.findFundamentalMat(coords_a, coords_b, method=cv.FM_8POINT)
+    logging.info(f"OpenCV estimated fundamental mat: {f_cv}")
 
+    np.testing.assert_almost_equal(f_cv, f, decimal=5)
+
+    # Check essential matrix computation
+    e = eight_point.estimate_essential_mat(
+        camera_matrix=fixture.K,
+        features_a=features_1,
+        features_b=features_2,
+        matches=matches,
+    )
+    e_cv, _ = cv.findEssentialMat(coords_a, coords_b, fixture.K)
+    # Enforce the essential matrix constant.
+    e_cv /= e_cv[2][2]
     np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
-    R1_cv, R2_cv, t_cv = cv.decomposeEssentialMat(e_cv)
+    R1_cv, R2_cv, t_cv = cv.decomposeEssentialMat(f_cv)
     t_cv = np.squeeze(t_cv)
-    R1, R2, t = eight_point._recover_all_r_t(e)
+    R1, R2, t = eight_point._recover_all_r_t(f)
 
     def _allclose(expected: npt.NDArray, actual: npt.NDArray):
         ABSOLUTE_TOLERANCE = 1e-4
@@ -290,7 +316,7 @@ def test_estimate_essential_matrix_degenerate():
         for index in range(len(features_1))
     ]
     with pytest.raises(eight_point.EightPointCalculationError):
-        e = eight_point.estimate_essential_mat(
+        e = eight_point.estimate_fundamental_mat(
             features_1,
             features_2,
             matches,
@@ -380,10 +406,22 @@ def test_triangulate(camera_intrinsic_matrix):
     # plt.show()
 
 
-def test_cheirality_check():
+def test_cheirality_check(eight_point_fixture: EightPointFixture):
     # TODO use eight_point_fixture, estimate an essential matrix, check that cheirality check
     # returns only one solution as valid
-    pass
+    fixture = eight_point_fixture
+    features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
+    features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
+    matches = [
+        Match(a_index=index, b_index=index, match_score=0.0)
+        for index in range(len(features_1))
+    ]
+    e = eight_point.estimate_fundamental_mat(
+        features_1,
+        features_2,
+        matches,
+    )
+    # eight_point._recover_r_t(features_1[0], features_2[0], e)
 
 
 def _rotate_rectangle(

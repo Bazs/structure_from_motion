@@ -49,11 +49,11 @@ def estimate_r_t(
         matches=matches,
     )
 
-    feature_a = features_a[0]
+    feature_a = _to_normalized_image_coords(features_a[0], camera_matrix)
     match = next(match for match in matches if match.a_index == 0)
-    feature_b = features_b[match.b_index]
+    feature_b = _to_normalized_image_coords(features_b[match.b_index], camera_matrix)
 
-    r, t = _recover_all_r_t(feature_a, feature_b, e)
+    r, t = _recover_r_t(feature_a, feature_b, e)
 
     return r, t
 

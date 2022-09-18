@@ -83,7 +83,7 @@ def test_get_y_col():
 @pytest.fixture
 def camera_intrinsic_matrix() -> npt.NDArray:
     return _create_camera_matrix(
-        f=100.0, cam_width_px=_CAM_WIDTH_PX, cam_height_px=_CAM_HEIGHT_PX
+        f=50.0, cam_width_px=_CAM_WIDTH_PX, cam_height_px=_CAM_HEIGHT_PX
     )
 
 
@@ -97,15 +97,16 @@ def test_to_normalized_image_coords(camera_intrinsic_matrix: npt.NDArray):
     ).reshape(3, 1)
     expected_coord /= expected_coord[-1]
     expected_coord = expected_coord[:2, :].reshape(-1)
-    expected_feature = Feature(x=expected_coord[0], y=expected_coord[1])
-    assert expected_feature == normalized_feature
+    coord = np.array([normalized_feature.x, normalized_feature.y])
+    np.testing.assert_allclose(expected_coord, coord)
 
 
 class EightPointFixture:
     def __init__(self, camera_intrinsic_matrix: npt.NDArray):
-        rng = np.random.default_rng(seed=5)
+        rng = np.random.default_rng(seed=6)
         NUM_POINTS = 8
         self.world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
+        self.world_t_world_points += np.array([1.0, 0.0, 0.0])
         self.K = camera_intrinsic_matrix
 
         self.world_t_world_camera1 = np.array([1.5, 0.25, -1.0])
@@ -117,18 +118,20 @@ class EightPointFixture:
         self.camera2_Rmat_world = camera2_R_world.as_matrix()
         camera2_Rvec_world, _ = cv.Rodrigues(self.camera2_Rmat_world)
 
+        camera1_t_camera1_world = self.camera1_Rmat_world @ -self.world_t_world_camera1
         self.cam1_points, _ = cv.projectPoints(
             self.world_t_world_points,
             camera1_Rvec_world,
-            -self.world_t_world_camera1,
+            camera1_t_camera1_world,
             self.K,
             None,
         )
         self.cam1_points = self.cam1_points.squeeze()
+        camera2_t_camera2_world = self.camera2_Rmat_world @ -self.world_t_world_camera2
         self.cam2_points, _ = cv.projectPoints(
             self.world_t_world_points,
             camera2_Rvec_world,
-            -self.world_t_world_camera2,
+            camera2_t_camera2_world,
             self.K,
             None,
         )
@@ -185,7 +188,7 @@ def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
 
     np.testing.assert_almost_equal(f_cv, f, decimal=5)
 
-    # Check essential matrix computation
+    # Check essential matrix computation.
     e = eight_point.estimate_essential_mat(
         camera_matrix=fixture.K,
         features_a=features_1,
@@ -193,7 +196,7 @@ def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
         matches=matches,
     )
     e_cv, _ = cv.findEssentialMat(coords_a, coords_b, fixture.K)
-    # Enforce the essential matrix constraint.
+    # Enforce the essential matrix constraint on the OpenCV estimate.
     e_cv /= e_cv[2][2]
     np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
@@ -201,6 +204,7 @@ def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
     t_cv = np.squeeze(t_cv)
     R1, R2, t = eight_point._recover_all_r_t(e)
 
+    # Check that essential matrix decomposition is correct.
     def _allclose(expected: npt.NDArray, actual: npt.NDArray):
         ABSOLUTE_TOLERANCE = 1e-4
         return np.allclose(expected, actual, atol=ABSOLUTE_TOLERANCE)
@@ -222,21 +226,33 @@ def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
     else:
         pytest.fail(rotmat_comparison_failure_message)
 
+    # Recover rotation and translation from the essential matrix.
     normalized_feature_a = eight_point._to_normalized_image_coords(
         features_1[0], fixture.K
     )
     normalized_feature_b = eight_point._to_normalized_image_coords(
         features_2[0], fixture.K
     )
-    cam2_R_cam1, cam1_t_cam1_cam2 = eight_point._recover_r_t(
+    cam2_R_cam1, cam2_t_cam2_cam1 = eight_point._recover_r_t(
         normalized_feature_a, normalized_feature_b, e
     )
-    # TODO fix expected translation calculation and assert translation
-    world_t_cam1_cam2 = fixture.world_t_world_camera2 - fixture.world_t_world_camera1
-    exp_cam1_t_cam1_cam2 = fixture.camera1_Rmat_world @ world_t_cam1_cam2
-    exp_cam1_t_cam1_cam2 /= abs(np.linalg.norm(exp_cam1_t_cam1_cam2))
-    cam1_t_cam1_cam2 /= abs(np.linalg.norm(cam1_t_cam1_cam2))
+    # Run the rotation/translation estimation end-to-end and check that it gives the same results.
+    cam2_R_cam1_end_to_end, cam2_t_cam2_cam1_end_to_end = eight_point.estimate_r_t(
+        fixture.K, features_1, features_2, matches
+    )
+    np.testing.assert_allclose(cam2_R_cam1_end_to_end, cam2_R_cam1)
+    np.testing.assert_allclose(cam2_t_cam2_cam1_end_to_end, cam2_t_cam2_cam1)
 
+    # Check that the normalized estimated translation matches the normalized actual translation.
+    world_t_cam2_cam1 = fixture.world_t_world_camera1 - fixture.world_t_world_camera2
+    exp_cam2_t_cam2_cam1 = fixture.camera2_Rmat_world @ world_t_cam2_cam1
+    exp_cam2_t_cam2_cam1 /= abs(np.linalg.norm(exp_cam2_t_cam2_cam1))
+    cam2_t_cam2_cam1 /= abs(np.linalg.norm(cam2_t_cam2_cam1))
+    np.testing.assert_allclose(
+        exp_cam2_t_cam2_cam1, cam2_t_cam2_cam1, atol=1e-5, rtol=0.0
+    )
+
+    # Check that the estimated rotation matches the real rotation.
     cam2_R_cam1 = Rotation.from_matrix(cam2_R_cam1).as_euler("XYZ", degrees=True)
     exp_cam2_R_cam1 = Rotation.from_matrix(
         fixture.camera2_Rmat_world @ fixture.camera1_Rmat_world.T
@@ -423,24 +439,6 @@ def test_triangulate(camera_intrinsic_matrix):
     )
 
     # plt.show()
-
-
-def test_cheirality_check(eight_point_fixture: EightPointFixture):
-    # TODO use eight_point_fixture, estimate an essential matrix, check that cheirality check
-    # returns only one solution as valid
-    fixture = eight_point_fixture
-    features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
-    features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
-    matches = [
-        Match(a_index=index, b_index=index, match_score=0.0)
-        for index in range(len(features_1))
-    ]
-    e = eight_point.estimate_fundamental_mat(
-        features_1,
-        features_2,
-        matches,
-    )
-    # eight_point._recover_r_t(features_1[0], features_2[0], e)
 
 
 def _rotate_rectangle(

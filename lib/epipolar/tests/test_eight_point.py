@@ -193,13 +193,13 @@ def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
         matches=matches,
     )
     e_cv, _ = cv.findEssentialMat(coords_a, coords_b, fixture.K)
-    # Enforce the essential matrix constant.
+    # Enforce the essential matrix constraint.
     e_cv /= e_cv[2][2]
     np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
-    R1_cv, R2_cv, t_cv = cv.decomposeEssentialMat(f_cv)
+    R1_cv, R2_cv, t_cv = cv.decomposeEssentialMat(e_cv)
     t_cv = np.squeeze(t_cv)
-    R1, R2, t = eight_point._recover_all_r_t(f)
+    R1, R2, t = eight_point._recover_all_r_t(e)
 
     def _allclose(expected: npt.NDArray, actual: npt.NDArray):
         ABSOLUTE_TOLERANCE = 1e-4
@@ -222,7 +222,26 @@ def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
     else:
         pytest.fail(rotmat_comparison_failure_message)
 
-    # eight_point._recover_r_t(features_1[0], features_2[0], e)
+    normalized_feature_a = eight_point._to_normalized_image_coords(
+        features_1[0], fixture.K
+    )
+    normalized_feature_b = eight_point._to_normalized_image_coords(
+        features_2[0], fixture.K
+    )
+    cam2_R_cam1, cam1_t_cam1_cam2 = eight_point._recover_r_t(
+        normalized_feature_a, normalized_feature_b, e
+    )
+    # TODO fix expected translation calculation and assert translation
+    world_t_cam1_cam2 = fixture.world_t_world_camera2 - fixture.world_t_world_camera1
+    exp_cam1_t_cam1_cam2 = fixture.camera1_Rmat_world @ world_t_cam1_cam2
+    exp_cam1_t_cam1_cam2 /= abs(np.linalg.norm(exp_cam1_t_cam1_cam2))
+    cam1_t_cam1_cam2 /= abs(np.linalg.norm(cam1_t_cam1_cam2))
+
+    cam2_R_cam1 = Rotation.from_matrix(cam2_R_cam1).as_euler("XYZ", degrees=True)
+    exp_cam2_R_cam1 = Rotation.from_matrix(
+        fixture.camera2_Rmat_world @ fixture.camera1_Rmat_world.T
+    ).as_euler("XYZ", degrees=True)
+    np.testing.assert_allclose(cam2_R_cam1, exp_cam2_R_cam1, atol=1e-5, rtol=0.0)
 
 
 def test_estimate_essential_matrix_degenerate():

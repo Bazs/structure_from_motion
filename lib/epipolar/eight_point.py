@@ -1,3 +1,5 @@
+"""Functions which estimate the Fundamental and Essential matrix, as well as recover rotation and translation based on
+point correspondeces between different camera poses."""
 import itertools
 import logging
 from pathlib import Path

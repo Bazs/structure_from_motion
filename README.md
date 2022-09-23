@@ -23,3 +23,7 @@ pipeline.
 * [Wikipedia](https://en.wikipedia.org/wiki/Eight-point_algorithm#Normalized_algorithm)
 * [University of Edinburgh](https://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MOHR_TRIGGS/node50.html)
 * [Hartley, Richard; Andrew Zisserman (2004). Multiple view geometry in computer vision (2nd ed.). Cambridge, UK.](https://www.robots.ox.ac.uk/~vgg/hzbook/)
+
+### Error Measure for Essential Matrix Selection
+
+* [Mohammed E Fathy; Ashraf Saad Hussein; Mohamed F. Tolba. Fundamental Matrix Estimation: A Study of Error Criteria](https://arxiv.org/abs/1706.07886)

@@ -143,7 +143,7 @@ def eight_point_fixture(camera_intrinsic_matrix) -> EightPointFixture:
     return EightPointFixture(camera_intrinsic_matrix)
 
 
-def test_estimate_essential_matrix(eight_point_fixture: EightPointFixture):
+def test_epipolar_pipeline(eight_point_fixture: EightPointFixture):
     fixture = eight_point_fixture
 
     fig = plt.figure()

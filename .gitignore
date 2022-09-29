@@ -11,3 +11,6 @@ data/
 
 # Python cache
 **/__pycache__/**
+
+# Python Hypothesis Tests
+.hypothesis

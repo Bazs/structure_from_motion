@@ -1,3 +1,4 @@
+hypothesis==6.54.6
 matplotlib==3.5.1
 numpy==1.21.2
 pytest==7.1.2

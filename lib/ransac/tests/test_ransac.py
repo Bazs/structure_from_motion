@@ -1,9 +1,12 @@
+from math import sqrt
+
 import numpy as np
 import numpy.typing as npt
 from attr import define
 from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
+from numpy.random import default_rng
 
 from lib.ransac import ransac
 
@@ -53,8 +56,42 @@ def test_line_fitter_2d(points: npt.NDArray):
 
 
 def line_scorer_2d(model: LineModel, point: npt.NDArray) -> float:
-    pass
+    return abs(model.a * point[0] + model.b * point[1] + model.c) / sqrt(
+        model.a ** 2 + model.b ** 2
+    )
 
 
 def test_ransac():
-    pass
+    line_start = np.array([4, 5])
+    line_slope = 0.6
+    num_line_points = 50
+    dx = 0.3
+    line_points = np.array(
+        [
+            line_start + np.array([i * dx, i * line_slope * dx])
+            for i in range(num_line_points)
+        ]
+    ).reshape((-1, 2))
+
+    min_x = np.amin(line_points[:, 0])
+    min_y = np.amin(line_points[:, 1])
+    max_x = np.amax(line_points[:, 0])
+    max_y = np.amax(line_points[:, 1])
+    rng = default_rng(seed=6)
+    num_random_points = int(num_line_points / 2)
+    noise_points = rng.random(size=(num_random_points, 2))
+    noise_points[:, 0] *= max_x - min_x
+    noise_points[:, 0] += min_x
+    noise_points[:, 1] *= max_y - min_y
+    noise_points[:, 1] += min_y
+
+    all_points = np.vstack([line_points, noise_points])
+
+    # TODO enable
+    # model, inliers = ransac.fit_with_ransac(
+    #     data=all_points,
+    #     model_fit_data_count=2,
+    #     model_fitter=line_fitter_2d,
+    #     inlier_scorer=line_scorer_2d,
+    #     inlier_threshold=0.2,
+    # )

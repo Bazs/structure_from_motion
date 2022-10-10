@@ -1,4 +1,5 @@
-from math import sqrt
+from math import isclose, sqrt
+from typing import Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -6,6 +7,7 @@ from attr import define
 from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
+from matplotlib import pyplot as plt
 from numpy.random import default_rng
 
 from lib.ransac import ransac
@@ -13,20 +15,23 @@ from lib.ransac import ransac
 
 @define
 class LineModel:
+    """Coefficients of the 2D line normal form equation of ax + by + c = 0."""
+
     a: float
     b: float
     c: float
 
 
-def line_fitter_2d(points: npt.NDArray) -> LineModel:
-    if np.allclose(points[0, :], points[1, :]):
+def line_fitter_2d(points: Sequence[npt.NDArray]) -> LineModel:
+    """Fit a line on two points."""
+    if np.allclose(points[0], points[1]):
         raise ValueError("Cannot fit line on the same two points.")
     if len(points) != 2:
         raise ValueError(f"Two points are needed for line fitting, got {len(points)}.")
-    dx = points[1, 0] - points[0, 0]
+    dx = points[1][0] - points[0][0]
     if abs(dx) <= 1e-6:
         return LineModel(a=1, b=0, c=-points[0][0])
-    slope = (points[1, 1] - points[0, 1]) / dx
+    slope = (points[1][1] - points[0][1]) / dx
     return LineModel(a=slope, b=-1, c=points[0][1] - slope * points[0][0])
 
 
@@ -86,12 +91,27 @@ def test_ransac():
     noise_points[:, 1] += min_y
 
     all_points = np.vstack([line_points, noise_points])
+    all_points_list = list(all_points)
 
-    # TODO enable
-    # model, inliers = ransac.fit_with_ransac(
-    #     data=all_points,
-    #     model_fit_data_count=2,
-    #     model_fitter=line_fitter_2d,
-    #     inlier_scorer=line_scorer_2d,
-    #     inlier_threshold=0.2,
-    # )
+    _, (all_points_ax, inliers_ax) = plt.subplots(nrows=1, ncols=2)
+    all_points_ax.scatter(all_points[:, 0], all_points[:, 1])
+
+    model, inliers = ransac.fit_with_ransac(
+        data=all_points_list,
+        model_fit_data_count=2,
+        model_fitter=line_fitter_2d,
+        inlier_scorer=line_scorer_2d,
+        inlier_threshold=0.2,
+    )
+    inliers = np.array(inliers)
+    inliers_ax.scatter(inliers[:, 0], inliers[:, 1])
+
+    # plt.show()
+
+    ALLOWED_NOISE_INLIERS = 3
+    num_extra_inliers = len(inliers) - len(line_points)
+    assert 0 <= num_extra_inliers <= ALLOWED_NOISE_INLIERS
+    pred_slope = -model.a / model.b
+    assert isclose(line_slope, pred_slope, rel_tol=0, abs_tol=1e-7)
+    exp_c = -np.sign(model.b) * (line_start[1] - line_start[0] * line_slope)
+    assert isclose(exp_c, model.c)

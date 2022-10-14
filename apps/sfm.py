@@ -14,12 +14,12 @@ _WINDOW_NAME = "SfM"
 
 
 def run_sfm() -> None:
-    dataset_folder = Path("data/barcelona")
+    dataset_folder = Path("data/kusvod2")
     if not dataset_folder.is_dir():
         raise FileNotFoundError(dataset_folder)
 
-    test_image_1_filename = "DSCN8235.JPG"
-    test_image_2_filename = "DSCN8238.JPG"
+    test_image_1_filename = "castleA.png"
+    test_image_2_filename = "castleB.png"
 
     cv.namedWindow(
         _WINDOW_NAME, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO | cv.WINDOW_GUI_EXPANDED
@@ -34,7 +34,7 @@ def run_sfm() -> None:
     )
 
     logging.info("Extracting features")
-    num_corners = 100
+    num_corners = 200
     image_1_corners = harris.detect_harris_corners(
         test_image_1_gray, num_corners=num_corners
     )
@@ -65,7 +65,7 @@ def run_sfm() -> None:
     ax.set_title("Matching Scores")
     fig.show()
 
-    matches = _filter_matches(matches, 0.2)
+    matches = _filter_matches(matches, 0.5)
 
     match_image = _draw_matches(
         test_image_1, test_image_2, image_1_corners, image_2_corners, matches
@@ -82,7 +82,7 @@ def _load_image_rgb_and_gray(image_path: Path) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def _downscale_image(image: np.ndarray) -> np.ndarray:
-    downscale_factor = 8
+    downscale_factor = 2
     smaller_size = (
         int(image.shape[1] / downscale_factor),
         int(image.shape[0] / downscale_factor),

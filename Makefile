@@ -3,10 +3,11 @@ pip-compile $< --generate-hashes -o $@
 endef
 
 # Download dataset.
+.PHONY: data
 data:
 	mkdir -p data
-	wget -nc https://cvg.ethz.ch/research/symmetries-in-sfm/datasets/barcelona.zip -P data
-	unzip -n data/barcelona.zip -d data/barcelona
+	-wget -nc -O data/kusvod2.tar.gz http://cmp.felk.cvut.cz/data/geometry2view/Lebeda-2012-kusvod2.tar.gz
+	tar -xzf data/kusvod2.tar.gz -C data
 
 .PHONY: requirements.txt
 requirements.txt: requirements.in

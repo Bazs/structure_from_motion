@@ -50,9 +50,9 @@ class MatchingTest(unittest.TestCase):
             features_a,
             features_b,
             _mock_matching_function,
-            validation_strategy=matching.ValidationStrategy.RATIO_TEST,
+            validation_strategies=matching.ValidationStrategy.RATIO_TEST,
             ratio_test_threshold=0.5,
         )
 
-        expected_matches = [matching.Match(0, 1, 5.0), matching.Match()]
+        expected_matches = [matching.Match(0, 1, 5)]
         self.assertEqual(expected_matches, matches)

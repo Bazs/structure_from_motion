@@ -52,7 +52,10 @@ def run_sfm() -> None:
         image_1_corners,
         image_2_corners,
         ssd_score_function,
-        validation_strategy=matching.ValidationStrategy.RATIO_TEST,
+        validation_strategies={
+            matching.ValidationStrategy.RATIO_TEST,
+            matching.ValidationStrategy.CROSSCHECK,
+        },
         ratio_test_threshold=0.65,
     )
     match_scores = [

@@ -1,7 +1,6 @@
 import logging
 import random
 from math import inf
-from pathlib import Path
 from typing import Any, Callable, Optional, Sequence, Tuple
 
 
@@ -11,9 +10,9 @@ def fit_with_ransac(
     model_fitter: Callable[[Sequence], Any],
     inlier_scorer: Callable[[Any, Any], float],
     inlier_threshold: float,
-    max_iterations: int = 1000,
+    max_iterations: int | None = None,
 ) -> Tuple[Optional[Any], Sequence]:
-    """Fit a model using RANSAC.
+    """Fit a model using RANSAC. Use the built-in random module for selecting candidates to fit model on.
 
     Args:
         data: A sequence of data points.
@@ -29,6 +28,9 @@ def fit_with_ransac(
         Tuple of {the model returned by model_fitter which has the most inliers, the elements of data which fit the
             returned model}.
     """
+    if max_iterations is None:
+        max_iterations = 100
+
     best_model = None
     best_model_inliers = []
     best_model_error = inf
@@ -40,16 +42,12 @@ def fit_with_ransac(
         logging.info("Data scores: %s", data_scores)
         inliers = [
             data_point
-            for data_point, inlier_score in zip(data, data_scores)
-            if inlier_score <= inlier_threshold
+            for data_point, score in zip(data, data_scores)
+            if score <= inlier_threshold
         ]
-        if model_fit_data_count <= len(inliers) > len(best_model_inliers):
+        if 1 <= len(inliers) >= len(best_model_inliers):
             model_error = sum(
-                [
-                    inler_score
-                    for inler_score in data_scores
-                    if inler_score <= inlier_threshold
-                ]
+                [score for score in data_scores if score <= inlier_threshold]
             )
             if model_error < best_model_error:
                 best_model_inliers = inliers

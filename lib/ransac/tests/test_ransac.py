@@ -1,3 +1,4 @@
+import random
 from math import isclose, sqrt
 from typing import Sequence
 
@@ -95,6 +96,9 @@ def test_ransac():
 
     _, (all_points_ax, inliers_ax) = plt.subplots(nrows=1, ncols=2)
     all_points_ax.scatter(all_points[:, 0], all_points[:, 1])
+
+    # Set the random seed for RANSAC.
+    random.seed(5)
 
     model, inliers = ransac.fit_with_ransac(
         data=all_points_list,

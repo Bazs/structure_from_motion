@@ -1,4 +1,5 @@
 import logging
+import random
 from tkinter import N
 
 import cv2 as cv
@@ -391,16 +392,17 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
     )
     matches = _create_trivial_matches(len(features_1))
 
+    # Set the random seed for RANSAC.
+    random.seed(5)
     e, inlier_feature_pairs = epipolar_ransac.estimate_essential_mat_with_ransac(
         camera_matrix=fixture.K,
         features_a=features_1,
         features_b=features_2,
         matches=matches,
-        sed_inlier_threshold=1e-2,
+        sed_inlier_threshold=1e-5,
     )
     print(len(inlier_feature_pairs))
-    # TODO investigate failure reason
-    # np.testing.assert_almost_equal(e_cv, e, decimal=5)
+    np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
 
 def test_triangulate(camera_intrinsic_matrix):

@@ -27,7 +27,7 @@ def estimate_r_t(
     features_a: List[Feature],
     features_b: List[Feature],
     matches: List[Match],
-):
+) -> Tuple[npt.NDArray, npt.NDArray]:
     """Estimate rotation and translation up to a scale based on eight feature matches between two images.
 
     Uses the Eight-Point algorithm to estimate the Essential matrix, then decomposes the Essential matrix

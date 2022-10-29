@@ -1,5 +1,9 @@
+import logging
 import random
+from pathlib import Path
 from typing import Any, Callable, Optional, Sequence, Tuple
+
+# _logger = logging.getLogger(Path(__file__).name)
 
 
 def fit_with_ransac(
@@ -32,10 +36,12 @@ def fit_with_ransac(
     for _ in range(max_iterations):
         samples = random.sample(data, k=model_fit_data_count)
         model = model_fitter(samples)
+        inlier_scores = [inlier_scorer(model, data_point) for data_point in data]
+        logging.info("Inlier scores: %s", inlier_scores)
         inliers = [
             data_point
-            for data_point in data
-            if inlier_scorer(model, data_point) <= inlier_threshold
+            for data_point, inlier_score in zip(data, inlier_scores)
+            if inlier_score <= inlier_threshold
         ]
         if len(inliers) > len(best_model_inliers):
             best_model_inliers = inliers

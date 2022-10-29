@@ -1,4 +1,5 @@
 import logging
+from tkinter import N
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ import pytest
 from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
-from lib.epipolar import eight_point
+from lib.epipolar import eight_point, epipolar_ransac
 from lib.feature_matching.matching import Match
 from lib.transforms.transforms import Transform3D
 
@@ -103,9 +104,9 @@ def test_to_normalized_image_coords(camera_intrinsic_matrix: npt.NDArray):
 
 class EightPointFixture:
     def __init__(self, camera_intrinsic_matrix: npt.NDArray):
-        rng = np.random.default_rng(seed=6)
+        self.rng = np.random.default_rng(seed=6)
         NUM_POINTS = 8
-        self.world_t_world_points = rng.random((NUM_POINTS, 3), dtype=np.float64)
+        self.world_t_world_points = self.rng.random((NUM_POINTS, 3), dtype=np.float64)
         self.world_t_world_points += np.array([1.0, 0.0, 0.0])
         self.K = camera_intrinsic_matrix
 
@@ -356,6 +357,53 @@ def test_estimate_essential_matrix_degenerate():
             features_2,
             matches,
         )
+
+
+def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixture):
+    fixture = eight_point_fixture
+    features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
+    features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
+
+    x_coords = [feature.x for feature in features_1]
+    y_coords = [feature.y for feature in features_1]
+    max_x = max(x_coords)
+    min_x = min(x_coords)
+    max_y = max(y_coords)
+    min_y = min(y_coords)
+
+    NUM_NOISE_MATCHES = 5
+    noise_x_coords = fixture.rng.random(NUM_NOISE_MATCHES * 2) * (max_x - min_x) + min_x
+    noise_y_coords = fixture.rng.random(NUM_NOISE_MATCHES * 2) * (max_y - min_y) + min_y
+
+    features_1.extend(
+        [
+            Feature(x=x, y=y)
+            for x, y in zip(
+                noise_x_coords[:NUM_NOISE_MATCHES], noise_y_coords[:NUM_NOISE_MATCHES]
+            )
+        ]
+    )
+    features_2.extend(
+        [
+            Feature(x=x, y=y)
+            for x, y in zip(
+                noise_x_coords[NUM_NOISE_MATCHES:], noise_y_coords[NUM_NOISE_MATCHES:]
+            )
+        ]
+    )
+    matches = [
+        Match(a_index=index, b_index=index, match_score=0.0)
+        for index in range(len(features_1))
+    ]
+
+    e, inlier_feature_pairs = epipolar_ransac.estimate_essential_mat_with_ransac(
+        camera_matrix=fixture.K,
+        features_a=features_1,
+        features_b=features_2,
+        matches=matches,
+        sed_inlier_threshold=5000.0,
+    )
+    print(len(inlier_feature_pairs))
 
 
 def test_triangulate(camera_intrinsic_matrix):

@@ -7,7 +7,7 @@ from typing import Tuple
 import numpy.typing as npt
 
 from lib.common.feature import Feature
-from lib.epipolar.eight_point import estimate_essential_mat
+from lib.epipolar.eight_point import estimate_essential_mat, to_normalized_image_coords
 from lib.epipolar.sed import calculate_symmetric_epipolar_distance
 from lib.feature_matching.matching import Match
 from lib.ransac.ransac import fit_with_ransac
@@ -15,9 +15,13 @@ from lib.ransac.ransac import fit_with_ransac
 FeaturePair = Tuple[Feature, Feature]
 
 
-def calculate_sed_inlier_score(e: npt.NDArray, matching_features: FeaturePair) -> float:
+def calculate_sed_inlier_score(
+    e: npt.NDArray, matching_features: FeaturePair, camera_matrix: npt.NDArray
+) -> float:
+    feature_a = to_normalized_image_coords(matching_features[0], camera_matrix)
+    feature_b = to_normalized_image_coords(matching_features[1], camera_matrix)
     return calculate_symmetric_epipolar_distance(
-        feature_a=matching_features[0], feature_b=matching_features[1], e=e
+        feature_a=feature_a, feature_b=feature_b, e=e
     )
 
 
@@ -52,7 +56,7 @@ def estimate_essential_mat_with_ransac(
         feature_pairs,
         model_fit_data_count=8,
         model_fitter=partial(eight_point_model_fitter, camera_matrix=camera_matrix),
-        inlier_scorer=calculate_sed_inlier_score,
+        inlier_scorer=partial(calculate_sed_inlier_score, camera_matrix=camera_matrix),
         inlier_threshold=sed_inlier_threshold,
     )
     if e is None:

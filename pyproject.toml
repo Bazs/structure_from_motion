@@ -1,2 +1,5 @@
 [tool.pytest.ini_options]
 addopts = "-vv --tb=short"
+
+[tool.isort]
+profile = "black"

@@ -51,9 +51,9 @@ def estimate_r_t(
         matches=matches,
     )
 
-    feature_a = _to_normalized_image_coords(features_a[0], camera_matrix)
+    feature_a = to_normalized_image_coords(features_a[0], camera_matrix)
     match = next(match for match in matches if match.a_index == 0)
-    feature_b = _to_normalized_image_coords(features_b[match.b_index], camera_matrix)
+    feature_b = to_normalized_image_coords(features_b[match.b_index], camera_matrix)
 
     r, t = _recover_r_t(feature_a, feature_b, e)
 
@@ -77,10 +77,10 @@ def estimate_essential_mat(
     Returns:
         The 3x3 Essential Matrix (https://en.wikipedia.org/wiki/Essential_matrix)."""
     features_a = [
-        _to_normalized_image_coords(feature, camera_matrix) for feature in features_a
+        to_normalized_image_coords(feature, camera_matrix) for feature in features_a
     ]
     features_b = [
-        _to_normalized_image_coords(feature, camera_matrix) for feature in features_b
+        to_normalized_image_coords(feature, camera_matrix) for feature in features_b
     ]
     e = estimate_fundamental_mat(
         features_a=features_a, features_b=features_b, matches=matches
@@ -88,9 +88,7 @@ def estimate_essential_mat(
     return e
 
 
-def _to_normalized_image_coords(
-    feature: Feature, camera_matrix: npt.NDArray
-) -> Feature:
+def to_normalized_image_coords(feature: Feature, camera_matrix: npt.NDArray) -> Feature:
     """Calculate the normalized image coordinates from pixel coordinates and the intrinsic camera parameters."""
     f_x = camera_matrix[0][0]
     f_y = camera_matrix[1][1]

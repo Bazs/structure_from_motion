@@ -10,6 +10,7 @@ from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
 from lib.epipolar import eight_point, epipolar_ransac
+from lib.epipolar.sed import calculate_symmetric_epipolar_distance
 from lib.feature_matching.matching import Match
 from lib.transforms.transforms import Transform3D
 
@@ -90,7 +91,7 @@ def camera_intrinsic_matrix() -> npt.NDArray:
 
 def test_to_normalized_image_coords(camera_intrinsic_matrix: npt.NDArray):
     feature = Feature(x=50, y=60)
-    normalized_feature = eight_point._to_normalized_image_coords(
+    normalized_feature = eight_point.to_normalized_image_coords(
         feature, camera_intrinsic_matrix
     )
     expected_coord = np.linalg.inv(camera_intrinsic_matrix) @ np.array(
@@ -167,10 +168,7 @@ def test_epipolar_pipeline(eight_point_fixture: EightPointFixture):
 
     features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
     features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
-    matches = [
-        Match(a_index=index, b_index=index, match_score=0.0)
-        for index in range(len(features_1))
-    ]
+    matches = _create_trivial_matches(len(features_1))
     f = eight_point.estimate_fundamental_mat(
         features_1,
         features_2,
@@ -228,10 +226,10 @@ def test_epipolar_pipeline(eight_point_fixture: EightPointFixture):
         pytest.fail(rotmat_comparison_failure_message)
 
     # Recover rotation and translation from the essential matrix.
-    normalized_feature_a = eight_point._to_normalized_image_coords(
+    normalized_feature_a = eight_point.to_normalized_image_coords(
         features_1[0], fixture.K
     )
-    normalized_feature_b = eight_point._to_normalized_image_coords(
+    normalized_feature_b = eight_point.to_normalized_image_coords(
         features_2[0], fixture.K
     )
     cam2_R_cam1, cam2_t_cam2_cam1 = eight_point._recover_r_t(
@@ -347,10 +345,7 @@ def test_estimate_essential_matrix_degenerate():
 
     features_1 = [Feature(x=point[0], y=point[1]) for point in cam1_points]
     features_2 = [Feature(x=point[0], y=point[1]) for point in cam2_points]
-    matches = [
-        Match(a_index=index, b_index=index, match_score=0.0)
-        for index in range(len(features_1))
-    ]
+    matches = _create_trivial_matches(len(features_1))
     with pytest.raises(eight_point.EightPointCalculationError):
         e = eight_point.estimate_fundamental_mat(
             features_1,
@@ -364,6 +359,9 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
     features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
     features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
 
+    # Calculate the expected essential matrix using OpenCV.
+    e_cv = _calculate_cv_essential_matrix(eight_point_fixture)
+
     x_coords = [feature.x for feature in features_1]
     y_coords = [feature.y for feature in features_1]
     max_x = max(x_coords)
@@ -371,7 +369,7 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
     max_y = max(y_coords)
     min_y = min(y_coords)
 
-    NUM_NOISE_MATCHES = 5
+    NUM_NOISE_MATCHES = 4
     noise_x_coords = fixture.rng.random(NUM_NOISE_MATCHES * 2) * (max_x - min_x) + min_x
     noise_y_coords = fixture.rng.random(NUM_NOISE_MATCHES * 2) * (max_y - min_y) + min_y
 
@@ -391,19 +389,18 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
             )
         ]
     )
-    matches = [
-        Match(a_index=index, b_index=index, match_score=0.0)
-        for index in range(len(features_1))
-    ]
+    matches = _create_trivial_matches(len(features_1))
 
     e, inlier_feature_pairs = epipolar_ransac.estimate_essential_mat_with_ransac(
         camera_matrix=fixture.K,
         features_a=features_1,
         features_b=features_2,
         matches=matches,
-        sed_inlier_threshold=5000.0,
+        sed_inlier_threshold=1e-2,
     )
     print(len(inlier_feature_pairs))
+    # TODO investigate failure reason
+    # np.testing.assert_almost_equal(e_cv, e, decimal=5)
 
 
 def test_triangulate(camera_intrinsic_matrix):
@@ -487,6 +484,48 @@ def test_triangulate(camera_intrinsic_matrix):
     )
 
     # plt.show()
+
+
+def test_calculate_symmetric_epipolar_distance(eight_point_fixture: EightPointFixture):
+    fixture = eight_point_fixture
+    e_cv = _calculate_cv_essential_matrix(eight_point_fixture)
+    features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
+    features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
+
+    for feature_1, feature_2 in zip(features_1, features_2):
+        sed = calculate_symmetric_epipolar_distance(
+            eight_point.to_normalized_image_coords(feature_1, fixture.K),
+            eight_point.to_normalized_image_coords(feature_2, fixture.K),
+            e_cv,
+        )
+        # Since the point correspondeces are perfect, they should perfectly match the essential matrix.
+        # Thus, the symmetric epipolar distance should be ~0.
+        assert sed < 1e-20
+
+
+def _create_trivial_matches(num_features: int) -> list[Match]:
+    return [
+        Match(a_index=index, b_index=index, match_score=0.0)
+        for index in range(num_features)
+    ]
+
+
+def _calculate_cv_essential_matrix(
+    eight_point_fixture: EightPointFixture,
+) -> npt.NDArray:
+    fixture = eight_point_fixture
+    features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
+    features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
+
+    # Calculate the expected essential matrix using OpenCV.
+    matches = _create_trivial_matches(len(features_1))
+    coords_a, coords_b = eight_point._get_matching_coordinates(
+        features_1, features_2, matches
+    )
+    e_cv, _ = cv.findEssentialMat(coords_a, coords_b, fixture.K)
+    # Enforce the essential matrix constraint on the OpenCV estimate.
+    e_cv /= e_cv[2][2]
+    return e_cv
 
 
 def _rotate_rectangle(

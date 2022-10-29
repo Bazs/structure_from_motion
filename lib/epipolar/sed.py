@@ -12,17 +12,19 @@ def calculate_symmetric_epipolar_distance(
 
     The SED is the geometric distance of each point to their epipolar line. It is a biased estimate of the
     Reprojection Error, but is faster to compute.
+
+    From Hartley and Zisserman, symmetric epipolar distance (11.10).
     """
     # Calculate the algebraic distance.
-    coord_a = np.array([feature_a.x, feature_a.y, 1.0])
-    coord_b = np.array([feature_b.x, feature_b.y, 1.0])
-    r = coord_a.T @ e @ coord_b
+    coord_a = np.array([feature_a.x, feature_a.y, 1.0]).reshape((3, 1))
+    coord_b = np.array([feature_b.x, feature_b.y, 1.0]).reshape((3, 1))
+    r = coord_b.T @ e @ coord_a
 
     # Calculate the epipolar lines.
-    line_a = e @ coord_b
-    line_b = e.T @ coord_a
+    line_a = e @ coord_a
+    line_b = e.T @ coord_b
 
     sed = (
         1.0 / np.sum(np.square(line_a[:2])) + 1.0 / np.sum(np.square(line_b[:2]))
     ) * r ** 2
-    return sed
+    return sed.item()

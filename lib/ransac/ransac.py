@@ -1,9 +1,8 @@
 import logging
 import random
+from math import inf
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence, Tuple
-
-# _logger = logging.getLogger(Path(__file__).name)
 
 
 def fit_with_ransac(
@@ -12,7 +11,7 @@ def fit_with_ransac(
     model_fitter: Callable[[Sequence], Any],
     inlier_scorer: Callable[[Any, Any], float],
     inlier_threshold: float,
-    max_iterations: int = 100,
+    max_iterations: int = 1000,
 ) -> Tuple[Optional[Any], Sequence]:
     """Fit a model using RANSAC.
 
@@ -32,25 +31,35 @@ def fit_with_ransac(
     """
     best_model = None
     best_model_inliers = []
+    best_model_error = inf
 
     for _ in range(max_iterations):
         samples = random.sample(data, k=model_fit_data_count)
         model = model_fitter(samples)
-        inlier_scores = [inlier_scorer(model, data_point) for data_point in data]
-        logging.info("Inlier scores: %s", inlier_scores)
+        data_scores = [inlier_scorer(model, data_point) for data_point in data]
+        logging.info("Data scores: %s", data_scores)
         inliers = [
             data_point
-            for data_point, inlier_score in zip(data, inlier_scores)
+            for data_point, inlier_score in zip(data, data_scores)
             if inlier_score <= inlier_threshold
         ]
-        if len(inliers) > len(best_model_inliers):
-            best_model_inliers = inliers
-            best_model = model
+        if model_fit_data_count <= len(inliers) > len(best_model_inliers):
+            model_error = sum(
+                [
+                    inler_score
+                    for inler_score in data_scores
+                    if inler_score <= inlier_threshold
+                ]
+            )
+            if model_error < best_model_error:
+                best_model_inliers = inliers
+                best_model = model
+                best_model_error = model_error
 
     if best_model is None:
         raise ValueError(
-            "No model could be found with at least one inlier. Check model_fitter, inlier_scorer, and"
-            " inlier_threshold, as this can only happen if there is a mistake in those arguments."
+            f"No model could be found with at least {model_fit_data_count} inliers. Check model_fitter, "
+            "inlier_scorer, and inlier_threshold, as this can only happen if there is a mistake in those arguments."
         )
 
     return best_model, best_model_inliers

@@ -6,8 +6,8 @@ endef
 .PHONY: data
 data:
 	mkdir -p data
-	-wget -nc -O data/kusvod2.tar.gz http://cmp.felk.cvut.cz/data/geometry2view/Lebeda-2012-kusvod2.tar.gz
-	tar -xzf data/kusvod2.tar.gz -C data
+	-wget -nc -O data/images.zip https://vision.middlebury.edu/mview/data/data/temple.zip
+	unzip data/images.zip -d data
 
 .PHONY: requirements.txt
 requirements.txt: requirements.in

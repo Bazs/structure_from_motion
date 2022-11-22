@@ -14,3 +14,6 @@ data/
 
 # Python Hypothesis Tests
 .hypothesis
+
+# Hydra output folders
+/outputs/

@@ -1,10 +1,13 @@
 import logging
+import os
 from pathlib import Path
 from typing import Callable, List, Tuple
 
+import hydra
 import matplotlib.pyplot as plt
 import numpy as np
 from cv2 import cv2 as cv
+from omegaconf import DictConfig, OmegaConf
 
 from lib.common import feature
 from lib.feature_matching import matching, nnc
@@ -12,14 +15,16 @@ from lib.harris import harris_detector as harris
 
 _WINDOW_NAME = "SfM"
 
+_DATASET_FOLDER = Path("data/temple")
+_TEST_IMAGE_1_FILENAME = "temple0170.png"
+_TEST_IMAGE_2_FILENAME = "temple0172.png"
 
-def run_sfm() -> None:
-    dataset_folder = Path("data/kusvod2")
-    if not dataset_folder.is_dir():
-        raise FileNotFoundError(dataset_folder)
 
-    test_image_1_filename = "castleA.png"
-    test_image_2_filename = "castleB.png"
+@hydra.main(config_path="config", config_name="config")
+def run_sfm(cfg: DictConfig) -> None:
+    os.chdir(hydra.utils.get_original_cwd())
+    if not _DATASET_FOLDER.is_dir():
+        raise FileNotFoundError(_DATASET_FOLDER)
 
     cv.namedWindow(
         _WINDOW_NAME, cv.WINDOW_NORMAL | cv.WINDOW_KEEPRATIO | cv.WINDOW_GUI_EXPANDED
@@ -27,10 +32,10 @@ def run_sfm() -> None:
 
     logging.info("Loading test images")
     test_image_1, test_image_1_gray = _load_image_rgb_and_gray(
-        dataset_folder / test_image_1_filename
+        _DATASET_FOLDER / _TEST_IMAGE_1_FILENAME, cfg.image_downscale_factor
     )
     test_image_2, test_image_2_gray = _load_image_rgb_and_gray(
-        dataset_folder / test_image_2_filename
+        _DATASET_FOLDER / _TEST_IMAGE_2_FILENAME, cfg.image_downscale_factor
     )
 
     logging.info("Extracting features")
@@ -56,7 +61,7 @@ def run_sfm() -> None:
             matching.ValidationStrategy.RATIO_TEST,
             matching.ValidationStrategy.CROSSCHECK,
         },
-        ratio_test_threshold=0.65,
+        ratio_test_threshold=cfg.ratio_test_threshold,
     )
     match_scores = [
         match.match_score for match in matches if match.match_score != np.Infinity
@@ -76,16 +81,17 @@ def run_sfm() -> None:
     _show_image(match_image)
 
 
-def _load_image_rgb_and_gray(image_path: Path) -> Tuple[np.ndarray, np.ndarray]:
+def _load_image_rgb_and_gray(
+    image_path: Path, downscale_factor: float
+) -> Tuple[np.ndarray, np.ndarray]:
     image = cv.imread(str(image_path))
-    image = _downscale_image(image)
+    image = _downscale_image(image, downscale_factor)
     image_gray = cv.cvtColor(image, cv.COLOR_RGB2GRAY)
 
     return image, image_gray
 
 
-def _downscale_image(image: np.ndarray) -> np.ndarray:
-    downscale_factor = 2
+def _downscale_image(image: np.ndarray, downscale_factor: float) -> np.ndarray:
     smaller_size = (
         int(image.shape[1] / downscale_factor),
         int(image.shape[0] / downscale_factor),

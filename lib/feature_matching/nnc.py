@@ -9,7 +9,7 @@ def calculate_nnc(
     image_b: np.ndarray,
     feature_a: feat.Feature,
     feature_b: feat.Feature,
-    window_size: int = 5,
+    window_size: int = 3,
 ) -> float:
     """Calculate the Normalized Cross-Correlation between two features in two images.
 

@@ -1,3 +1,4 @@
+hydra-core==1.1.0
 hypothesis==6.54.6
 matplotlib==3.5.1
 numpy==1.21.2

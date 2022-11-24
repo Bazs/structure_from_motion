@@ -7,17 +7,21 @@ import hydra
 import matplotlib.pyplot as plt
 import numpy as np
 from cv2 import cv2 as cv
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 from lib.common import feature
+from lib.data_utils.middlebury_utils import load_camera_intrinsics
 from lib.feature_matching import matching, nnc
 from lib.harris import harris_detector as harris
 
 _WINDOW_NAME = "SfM"
 
 _DATASET_FOLDER = Path("data/temple")
-_TEST_IMAGE_1_FILENAME = "temple0170.png"
-_TEST_IMAGE_2_FILENAME = "temple0172.png"
+_PARAMETERS_FILEPATH = _DATASET_FOLDER / "temple_par.txt"
+_TEST_IMAGE_1_IDX = "0170"
+_TEST_IMAGE_2_IDX = "0172"
+_TEST_IMAGE_1_FILENAME = f"temple{_TEST_IMAGE_1_IDX}.png"
+_TEST_IMAGE_2_FILENAME = f"temple{_TEST_IMAGE_2_IDX}.png"
 
 
 @hydra.main(config_path="config", config_name="config")
@@ -37,15 +41,16 @@ def run_sfm(cfg: DictConfig) -> None:
     test_image_2, test_image_2_gray = _load_image_rgb_and_gray(
         _DATASET_FOLDER / _TEST_IMAGE_2_FILENAME, cfg.image_downscale_factor
     )
+    image_1_k = load_camera_intrinsics(_PARAMETERS_FILEPATH, int(_TEST_IMAGE_1_IDX))
+    image_2_k = load_camera_intrinsics(_PARAMETERS_FILEPATH, int(_TEST_IMAGE_2_IDX))
 
     logging.info("Extracting features")
-    num_corners = 200
     image_1_corners = harris.detect_harris_corners(
-        test_image_1_gray, num_corners=num_corners
+        test_image_1_gray, num_corners=cfg.num_harris_corners
     )
     _draw_features(test_image_1, image_1_corners)
     image_2_corners = harris.detect_harris_corners(
-        test_image_2_gray, num_corners=num_corners
+        test_image_2_gray, num_corners=cfg.num_harris_corners
     )
     _draw_features(test_image_2, image_2_corners)
 
@@ -73,7 +78,7 @@ def run_sfm(cfg: DictConfig) -> None:
     ax.set_title("Matching Scores")
     fig.show()
 
-    matches = _filter_matches(matches, 0.5)
+    matches = _filter_matches(matches, cfg.match_score_threshold)
 
     match_image = _draw_matches(
         test_image_1, test_image_2, image_1_corners, image_2_corners, matches

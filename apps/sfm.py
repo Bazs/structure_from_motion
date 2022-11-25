@@ -1,5 +1,6 @@
 import logging
 import os
+from multiprocessing.sharedctypes import Value
 from pathlib import Path
 from typing import Callable, List, Tuple
 
@@ -43,6 +44,11 @@ def run_sfm(cfg: DictConfig) -> None:
     )
     image_1_k = load_camera_intrinsics(_PARAMETERS_FILEPATH, int(_TEST_IMAGE_1_IDX))
     image_2_k = load_camera_intrinsics(_PARAMETERS_FILEPATH, int(_TEST_IMAGE_2_IDX))
+    if not np.allclose(image_1_k, image_2_k):
+        raise ValueError(
+            f"Camera intrinsics params are different for the images, which is "
+            "currently not supported."
+        )
 
     logging.info("Extracting features")
     image_1_corners = harris.detect_harris_corners(

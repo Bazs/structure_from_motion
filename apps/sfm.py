@@ -12,6 +12,8 @@ from omegaconf import DictConfig
 
 from lib.common import feature
 from lib.data_utils.middlebury_utils import load_camera_intrinsics
+from lib.epipolar.eight_point import recover_r_t_from_e
+from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
 from lib.feature_matching import matching, nnc
 from lib.harris import harris_detector as harris
 
@@ -90,6 +92,22 @@ def run_sfm(cfg: DictConfig) -> None:
         test_image_1, test_image_2, image_1_corners, image_2_corners, matches
     )
     _show_image(match_image)
+
+    e, inlier_feature_pairs = estimate_essential_mat_with_ransac(
+        image_1_k,
+        features_a=image_1_corners,
+        features_b=image_2_corners,
+        matches=matches,
+        sed_inlier_threshold=cfg.ransac.sed_inlier_threshold,
+        max_iterations=cfg.ransac.max_iterations,
+    )
+
+    r, t = recover_r_t_from_e(
+        e=e,
+        camera_matrix=image_1_k,
+        feature_a=inlier_feature_pairs[0][0],
+        feature_b=inlier_feature_pairs[0][1],
+    )
 
 
 def _load_image_rgb_and_gray(

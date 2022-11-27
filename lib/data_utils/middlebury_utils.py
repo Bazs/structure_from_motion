@@ -7,10 +7,15 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
+from numpy.lib.index_tricks import IndexExpression
+
+from lib.transforms.transforms import Transform3D
 
 
-def load_camera_intrinsics(par_filepath: Path, file_index: int) -> npt.NDArray[float]:
-    """Load camera intrinsic parameters from a parameters file.
+def load_camera_k_r_t(
+    par_filepath: Path, file_index: int
+) -> tuple[npt.NDArray[float], Transform3D]:
+    """Load camera intrinsic parameters and extrinsic transformation from a parameters file.
     See https://vision.middlebury.edu/mview/data/ for the details
     of the file layout.
 
@@ -18,7 +23,7 @@ def load_camera_intrinsics(par_filepath: Path, file_index: int) -> npt.NDArray[f
       par_filepath: The *_.par.txt file.
       file_idnex: The index of the image to load the intrinsics for.
     Returns:
-      The camera intrinsic matrix as a numpy matrix.
+      Tuple containing the camera intrinsic matrix as a numpy matrix, and the extrinsic transform.
     """
     with par_filepath.open("rt") as par_file:
         num_entries = int(par_file.readline())
@@ -34,7 +39,14 @@ def load_camera_intrinsics(par_filepath: Path, file_index: int) -> npt.NDArray[f
                 raise RuntimeError(f"Could not decode filename {filename}.")
             line_file_index = int(match[1])
             if line_file_index == file_index:
-                return np.array([float(param) for param in line_parts[1:10]]).reshape(
-                    (3, 3)
-                )
+                k = _extract_mat_from_line_parts(line_parts, np.s_[1:10], (3, 3))
+                r = _extract_mat_from_line_parts(line_parts, np.s_[10:19], (3, 3))
+                t = _extract_mat_from_line_parts(line_parts, np.s_[19:22], (3, 1))
+                return k, Transform3D.from_rmat_t(r, t)
         raise ValueError(f"Could not find matching entry for file index {file_index}")
+
+
+def _extract_mat_from_line_parts(
+    line_parts: list[str], slice: IndexExpression, shape: tuple[int, ...]
+) -> npt.NDArray[float]:
+    return np.array([float(param) for param in line_parts[slice]]).reshape(shape)

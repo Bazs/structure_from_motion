@@ -1,6 +1,5 @@
 import logging
 import os
-from multiprocessing.sharedctypes import Value
 from pathlib import Path
 from typing import Callable, List, Tuple
 
@@ -9,13 +8,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from cv2 import cv2 as cv
 from omegaconf import DictConfig
+from scipy.spatial.transform import Rotation
 
 from lib.common import feature
-from lib.data_utils.middlebury_utils import load_camera_intrinsics
+from lib.data_utils.middlebury_utils import load_camera_k_r_t
 from lib.epipolar.eight_point import recover_r_t_from_e
 from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
 from lib.feature_matching import matching, nnc
 from lib.harris import harris_detector as harris
+from lib.transforms.transforms import Transform3D
 
 _WINDOW_NAME = "SfM"
 
@@ -44,8 +45,12 @@ def run_sfm(cfg: DictConfig) -> None:
     test_image_2, test_image_2_gray = _load_image_rgb_and_gray(
         _DATASET_FOLDER / _TEST_IMAGE_2_FILENAME, cfg.image_downscale_factor
     )
-    image_1_k = load_camera_intrinsics(_PARAMETERS_FILEPATH, int(_TEST_IMAGE_1_IDX))
-    image_2_k = load_camera_intrinsics(_PARAMETERS_FILEPATH, int(_TEST_IMAGE_2_IDX))
+    image_1_k, cam1_T_world = load_camera_k_r_t(
+        _PARAMETERS_FILEPATH, int(_TEST_IMAGE_1_IDX)
+    )
+    image_2_k, cam2_T_world = load_camera_k_r_t(
+        _PARAMETERS_FILEPATH, int(_TEST_IMAGE_2_IDX)
+    )
     if not np.allclose(image_1_k, image_2_k):
         raise ValueError(
             f"Camera intrinsics params are different for the images, which is "
@@ -108,6 +113,13 @@ def run_sfm(cfg: DictConfig) -> None:
         feature_a=inlier_feature_pairs[0][0],
         feature_b=inlier_feature_pairs[0][1],
     )
+    cam2_T_cam1 = Transform3D.from_rmat_t(r, t)
+    logging.info("Calculated transform:")
+    _print_transform(cam2_T_cam1)
+    expected_cam1_T_cam2 = cam1_T_world @ cam2_T_world.inv()
+    expected_cam1_T_cam2.t /= np.linalg.norm(expected_cam1_T_cam2.t)
+    logging.info("Expected transform:")
+    _print_transform(expected_cam1_T_cam2)
 
 
 def _load_image_rgb_and_gray(
@@ -188,3 +200,10 @@ def _draw_matches(
     )
 
     return match_image
+
+
+def _print_transform(transform: Transform3D):
+    rot = Rotation.from_matrix(transform.Rmat)
+    logging.info(
+        f"Transformation:\nrotation XYZ:\n{rot.as_euler('XYZ', degrees=True)} deg\nt:\n{transform.t}"
+    )

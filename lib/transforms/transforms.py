@@ -4,7 +4,6 @@ from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
-from scipy.spatial.transform import Rotation
 from transforms3d import affines
 
 
@@ -23,7 +22,8 @@ class Transform3D:
         if rmat.shape != (3, 3):
             raise ValueError("3x3 matrix expected")
         if t is None:
-            t = np.zeros((3, 1), dtype=float)
+            t = np.zeros((3,), dtype=float)
+        t = t.reshape((3,))
         if t.size != 3:
             raise ValueError("3-element translation vector expected")
 
@@ -41,6 +41,10 @@ class Transform3D:
     def t(self):
         return self._Tmat[:3, 3]
 
+    @t.setter
+    def t(self, value: npt.NDArray[float]):
+        self._Tmat[:3, 3] = value
+
     @property
     def Rmat(self):
         return self._Tmat[:3, :3]
@@ -51,6 +55,12 @@ class Transform3D:
     def __mul__(self, other: Transform3D) -> Transform3D:
         if isinstance(other, Transform3D):
             return self.__class__(self.Tmat @ other.Tmat)
+        raise TypeError(
+            f"Multiplication is only supported between {self.__class__} objects."
+        )
+
+    def __matmul__(self, other: Transform3D) -> Transform3D:
+        return self * other
 
     def __str__(self) -> str:
         return f"Homogeneous transformation(\n{self.Tmat})"

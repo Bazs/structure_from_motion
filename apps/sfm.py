@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 from pathlib import Path
@@ -14,7 +15,7 @@ from lib.common import feature
 from lib.data_utils.middlebury_utils import load_camera_k_r_t
 from lib.epipolar.eight_point import create_trivial_matches, recover_r_t_from_e
 from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
-from lib.feature_matching import matching, nnc
+from lib.feature_matching import matching, ncc
 from lib.harris import harris_detector as harris
 from lib.transforms.transforms import Transform3D
 
@@ -68,8 +69,9 @@ def run_sfm(cfg: DictConfig) -> None:
     _draw_features(test_image_2, image_2_corners)
 
     logging.info("Matching features")
+    ncc_function = functools.partial(ncc.calculate_ncc, window_size=cfg.ncc_window_size)
     ssd_score_function = _create_score_function(
-        test_image_1_gray, test_image_2_gray, nnc.calculate_nnc
+        test_image_1_gray, test_image_2_gray, ncc_function
     )
     matches = matching.match_brute_force(
         image_1_corners,
@@ -162,7 +164,7 @@ def _create_score_function(
     ],
 ) -> matching.ScoreFunction:
     def ssd_score(feature_a: feature.Feature, feature_b: feature.Feature) -> float:
-        return full_score_function(image_a, image_b, feature_a, feature_b, 9)
+        return full_score_function(image_a, image_b, feature_a, feature_b)
 
     return ssd_score
 

@@ -4,7 +4,7 @@ from lib.common import feature as feat
 from lib.feature_matching import util
 
 
-def calculate_nnc(
+def calculate_ncc(
     image_a: np.ndarray,
     image_b: np.ndarray,
     feature_a: feat.Feature,

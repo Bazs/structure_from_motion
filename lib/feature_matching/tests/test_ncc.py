@@ -3,10 +3,10 @@ import unittest
 import numpy as np
 
 from lib.common.feature import Feature
-from lib.feature_matching import nnc
+from lib.feature_matching import ncc
 
 
-class TestNnc(unittest.TestCase):
+class TestNcc(unittest.TestCase):
     def setUp(self) -> None:
         self.image_a = np.array(
             [
@@ -20,14 +20,14 @@ class TestNnc(unittest.TestCase):
 
     def test_nnc_pefect_match(self):
         image_b = np.copy(self.image_a)
-        score = nnc.calculate_nnc(
+        score = ncc.calculate_ncc(
             self.image_a, image_b, Feature(2, 2), Feature(2, 2), 5
         )
         np.testing.assert_allclose(0.0, score, atol=1e-10)
 
     def test_nnc_worst_match(self):
         image_b = -np.copy(self.image_a)
-        score = nnc.calculate_nnc(
+        score = ncc.calculate_ncc(
             self.image_a, image_b, Feature(2, 2), Feature(2, 2), 5
         )
         np.testing.assert_allclose(2.0, score)
@@ -44,7 +44,7 @@ class TestNnc(unittest.TestCase):
             image_b = np.random.rand(window_size, window_size) + np.random.randint(
                 -100, 100
             )
-            score = nnc.calculate_nnc(
+            score = ncc.calculate_ncc(
                 image_a, image_b, Feature(2, 2), Feature(2, 2), window_size
             )
             tolerance = 1e-8

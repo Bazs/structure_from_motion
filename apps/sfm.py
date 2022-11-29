@@ -12,7 +12,7 @@ from scipy.spatial.transform import Rotation
 
 from lib.common import feature
 from lib.data_utils.middlebury_utils import load_camera_k_r_t
-from lib.epipolar.eight_point import recover_r_t_from_e
+from lib.epipolar.eight_point import create_trivial_matches, recover_r_t_from_e
 from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
 from lib.feature_matching import matching, nnc
 from lib.harris import harris_detector as harris
@@ -93,11 +93,6 @@ def run_sfm(cfg: DictConfig) -> None:
 
     matches = _filter_matches(matches, cfg.match_score_threshold)
 
-    match_image = _draw_matches(
-        test_image_1, test_image_2, image_1_corners, image_2_corners, matches
-    )
-    _show_image(match_image)
-
     e, inlier_feature_pairs = estimate_essential_mat_with_ransac(
         image_1_k,
         features_a=image_1_corners,
@@ -106,6 +101,14 @@ def run_sfm(cfg: DictConfig) -> None:
         sed_inlier_threshold=cfg.ransac.sed_inlier_threshold,
         max_iterations=cfg.ransac.max_iterations,
     )
+    match_image = _draw_matches(
+        test_image_1,
+        test_image_2,
+        [pair[0] for pair in inlier_feature_pairs],
+        [pair[1] for pair in inlier_feature_pairs],
+        create_trivial_matches(len(inlier_feature_pairs)),
+    )
+    _show_image(match_image)
 
     r, t = recover_r_t_from_e(
         e=e,

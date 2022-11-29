@@ -3,5 +3,5 @@ num_harris_corners: 200
 ratio_test_threshold: 0.6
 match_score_threshold: 0.13
 ransac:
-  sed_inlier_threshold: 0.5
+  sed_inlier_threshold: 1e-5
   max_iterations: 100

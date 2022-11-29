@@ -153,6 +153,13 @@ def estimate_fundamental_mat(
     return e
 
 
+def create_trivial_matches(num_features: int) -> list[Match]:
+    return [
+        Match(a_index=index, b_index=index, match_score=0.0)
+        for index in range(num_features)
+    ]
+
+
 def _recover_r_t(feature_a: Feature, feature_b: Feature, e: np.ndarray):
     """Recover the rotation and translation up to a scale from an Essential matrix.
 

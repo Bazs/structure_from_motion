@@ -169,7 +169,7 @@ def test_epipolar_pipeline(eight_point_fixture: EightPointFixture):
 
     features_1 = [Feature(x=point[0], y=point[1]) for point in fixture.cam1_points]
     features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
-    matches = _create_trivial_matches(len(features_1))
+    matches = eight_point.create_trivial_matches(len(features_1))
     f = eight_point.estimate_fundamental_mat(
         features_1,
         features_2,
@@ -346,7 +346,7 @@ def test_estimate_essential_matrix_degenerate():
 
     features_1 = [Feature(x=point[0], y=point[1]) for point in cam1_points]
     features_2 = [Feature(x=point[0], y=point[1]) for point in cam2_points]
-    matches = _create_trivial_matches(len(features_1))
+    matches = eight_point.create_trivial_matches(len(features_1))
     with pytest.raises(eight_point.EightPointCalculationError):
         e = eight_point.estimate_fundamental_mat(
             features_1,
@@ -390,7 +390,7 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
             )
         ]
     )
-    matches = _create_trivial_matches(len(features_1))
+    matches = eight_point.create_trivial_matches(len(features_1))
 
     # Set the random seed for RANSAC.
     random.seed(5)
@@ -505,13 +505,6 @@ def test_calculate_symmetric_epipolar_distance(eight_point_fixture: EightPointFi
         assert sed < 1e-20
 
 
-def _create_trivial_matches(num_features: int) -> list[Match]:
-    return [
-        Match(a_index=index, b_index=index, match_score=0.0)
-        for index in range(num_features)
-    ]
-
-
 def _calculate_cv_essential_matrix(
     eight_point_fixture: EightPointFixture,
 ) -> npt.NDArray:
@@ -520,7 +513,7 @@ def _calculate_cv_essential_matrix(
     features_2 = [Feature(x=point[0], y=point[1]) for point in fixture.cam2_points]
 
     # Calculate the expected essential matrix using OpenCV.
-    matches = _create_trivial_matches(len(features_1))
+    matches = eight_point.create_trivial_matches(len(features_1))
     coords_a, coords_b = eight_point._get_matching_coordinates(
         features_1, features_2, matches
     )

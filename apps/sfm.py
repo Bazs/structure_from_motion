@@ -13,8 +13,13 @@ from scipy.spatial.transform import Rotation
 
 from lib.common import feature
 from lib.data_utils.middlebury_utils import load_camera_k_r_t
-from lib.epipolar.eight_point import create_trivial_matches, recover_r_t_from_e
+from lib.epipolar.eight_point import (
+    create_trivial_matches,
+    recover_r_t_from_e,
+    to_normalized_image_coords,
+)
 from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
+from lib.epipolar.triangulation import triangulate_points
 from lib.feature_matching import matching, ncc
 from lib.harris import harris_detector as harris
 from lib.ransac.ransac import ErrorAggregationMethod
@@ -87,12 +92,21 @@ def run_sfm(cfg: DictConfig) -> None:
     match_scores = [
         match.match_score for match in matches if match.match_score != np.Infinity
     ]
+    match_image = _draw_matches(
+        test_image_1,
+        test_image_2,
+        image_1_corners,
+        image_2_corners,
+        matches,
+    )
+    _show_image(match_image)
+    cv.waitKey()
 
     # Show a histogram of matching scores
     fig, ax = plt.subplots(1, 1)
     ax.hist(match_scores)
     ax.set_title("Matching Scores")
-    fig.show()
+    # fig.show()
 
     matches = _filter_matches(matches, cfg.match_score_threshold)
 
@@ -106,11 +120,13 @@ def run_sfm(cfg: DictConfig) -> None:
         min_num_extra_inliers=cfg.ransac.min_num_extra_inliers,
         max_iterations=cfg.ransac.max_iterations,
     )
+    inlier_features_a = [pair[0] for pair in inlier_feature_pairs]
+    inlier_features_b = [pair[1] for pair in inlier_feature_pairs]
     match_image = _draw_matches(
         test_image_1,
         test_image_2,
-        [pair[0] for pair in inlier_feature_pairs],
-        [pair[1] for pair in inlier_feature_pairs],
+        inlier_features_a,
+        inlier_features_b,
         create_trivial_matches(len(inlier_feature_pairs)),
     )
     _show_image(match_image)
@@ -128,6 +144,31 @@ def run_sfm(cfg: DictConfig) -> None:
     expected_cam1_T_cam2.t /= np.linalg.norm(expected_cam1_T_cam2.t)
     logging.info("Expected transform:")
     _print_transform(expected_cam1_T_cam2)
+
+    inlier_features_a = [
+        to_normalized_image_coords(feature, image_1_k) for feature in inlier_features_a
+    ]
+    inlier_features_b = [
+        to_normalized_image_coords(feature, image_1_k) for feature in inlier_features_b
+    ]
+    world_t_world_points = triangulate_points(
+        inlier_features_a,
+        inlier_features_b,
+        intrinsic_camera_matrix=image_1_k,
+        cam2_T_cam1=cam2_T_cam1,
+    )
+    fig = plt.figure()
+    ax_3d = fig.add_subplot(111, projection="3d")
+    ax_3d.scatter(
+        world_t_world_points[:, 0],
+        world_t_world_points[:, 1],
+        world_t_world_points[:, 2],
+    )
+    ax_3d.set_xlabel("x")
+    ax_3d.set_ylabel("y")
+    ax_3d.set_zlabel("z")
+    fig.show()
+    cv.waitKey()
 
 
 def _load_image_rgb_and_gray(
@@ -156,7 +197,6 @@ def _draw_features(image: np.ndarray, features: List[feature.Feature]) -> None:
 
 def _show_image(image: np.ndarray) -> None:
     cv.imshow(_WINDOW_NAME, image)
-    cv.waitKey()
 
 
 def _create_score_function(
@@ -199,6 +239,9 @@ def _draw_matches(
 ) -> np.ndarray:
     def to_cv_keypoints(features):
         return [cv.KeyPoint(feat.x, feat.y, 1) for feat in features]
+
+    image_1 = image_1.copy()
+    image_2 = image_2.copy()
 
     keypoints_1 = to_cv_keypoints(features_1)
     keypoints_2 = to_cv_keypoints(features_2)

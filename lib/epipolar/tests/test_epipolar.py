@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation
 from lib.common.feature import Feature
 from lib.epipolar import eight_point, epipolar_ransac
 from lib.epipolar.sed import calculate_symmetric_epipolar_distance
+from lib.epipolar.triangulation import triangulate_point_correspondence
 from lib.feature_matching.matching import Match
 from lib.ransac.ransac import ErrorAggregationMethod
 from lib.transforms.transforms import Transform3D
@@ -480,7 +481,7 @@ def test_triangulate(camera_intrinsic_matrix):
     cam1_point_check = (cam1_point_check / cam1_point_check[2])[:-1]
     np.testing.assert_almost_equal(cam1_point.reshape(-1), cam1_point_check.reshape(-1))
 
-    world_t_world_point_estimated = eight_point._triangulate(
+    world_t_world_point_estimated = triangulate_point_correspondence(
         feature_a, feature_b, P1, P2
     )
     np.testing.assert_allclose(

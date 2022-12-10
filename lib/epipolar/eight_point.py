@@ -10,6 +10,7 @@ import numpy.typing as npt
 from scipy.spatial.transform import Rotation
 
 from lib.common.feature import Feature
+from lib.epipolar.triangulation import triangulate_point_correspondence
 from lib.feature_matching.matching import Match
 from lib.transforms.transforms import Transform3D
 
@@ -154,6 +155,7 @@ def estimate_fundamental_mat(
 
 
 def create_trivial_matches(num_features: int) -> list[Match]:
+    """Create a list num_features matches, where a_index and b_index equals to the list index for each match."""
     return [
         Match(a_index=index, b_index=index, match_score=0.0)
         for index in range(num_features)
@@ -385,39 +387,6 @@ def _enforce_fundamental_mat_constraints(f_est: np.ndarray) -> np.ndarray:
     return f
 
 
-def _triangulate(
-    feature_a: Feature, feature_b: Feature, P1: npt.NDArray, P2: npt.NDArray
-) -> npt.NDArray:
-    """Triangulate the 3D world position of the point corresponding to the matching
-    feature pair in two different camera poses.
-
-    Args:
-        feature_a: The projection of the world point onto the first camera.
-        feature_b: The projection of the world point onto the second camera.
-        P1: The intrinsic+extrinsic 3x4 camera matrix of the first camera.
-        P2: The intrinsic+extrinsic 3x4 camera matrix of the second camera.
-    Returns:
-        The 3D position of the point as a vector.
-    """
-    A = np.array(
-        [
-            [feature_a.y * P1[2, :] - P1[1, :]],
-            [P1[0, :] - feature_a.x * P1[2, :]],
-            [feature_b.y * P2[2, :] - P2[1, :]],
-            [P2[0, :] - feature_b.x * P2[2, :]],
-        ]
-    ).squeeze()
-
-    # The best estimate for the 3D position is the right singular vector of A corresponding to the smallest singular
-    # value.
-    _, _, vh = np.linalg.svd(A)
-    x = vh[-1, :]
-
-    # Convert back from homogeneous coordinates.
-    x = (x / x[-1])[:-1]
-    return x
-
-
 def _cheirality_check(
     feature_a: Feature,
     feature_b: Feature,
@@ -430,7 +399,7 @@ def _cheirality_check(
     # Place the first camera into the world frame's origin.
     P1 = Transform3D.identity().Tmat
     P2 = Transform3D.from_rmat_t(cam2_R_cam1, cam2_t_cam2_cam1).Tmat
-    cam1_t_cam1_feature = _triangulate(feature_a, feature_b, P1, P2)
+    cam1_t_cam1_feature = triangulate_point_correspondence(feature_a, feature_b, P1, P2)
     cam2_t_cam2_feature = (P2 @ [*cam1_t_cam1_feature, 1])[:-1]
     TOLERANCE = 1e-8
     if np.all(

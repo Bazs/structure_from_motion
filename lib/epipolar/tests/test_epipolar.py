@@ -13,6 +13,7 @@ from lib.common.feature import Feature
 from lib.epipolar import eight_point, epipolar_ransac
 from lib.epipolar.sed import calculate_symmetric_epipolar_distance
 from lib.feature_matching.matching import Match
+from lib.ransac.ransac import ErrorAggregationMethod
 from lib.transforms.transforms import Transform3D
 
 logging.basicConfig(
@@ -399,7 +400,8 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
         features_a=features_1,
         features_b=features_2,
         matches=matches,
-        sed_inlier_threshold=1e-5,
+        sed_inlier_threshold=1e-3,
+        error_aggregation_method=ErrorAggregationMethod.RMS,
     )
     print(len(inlier_feature_pairs))
     np.testing.assert_almost_equal(e_cv, e, decimal=5)

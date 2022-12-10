@@ -10,7 +10,7 @@ from lib.common.feature import Feature
 from lib.epipolar.eight_point import estimate_essential_mat, to_normalized_image_coords
 from lib.epipolar.sed import calculate_symmetric_epipolar_distance
 from lib.feature_matching.matching import Match
-from lib.ransac.ransac import fit_with_ransac
+from lib.ransac.ransac import ErrorAggregationMethod, fit_with_ransac
 
 FeaturePair = Tuple[Feature, Feature]
 
@@ -48,6 +48,7 @@ def estimate_essential_mat_with_ransac(
     features_b: list[Feature],
     matches: list[Match],
     sed_inlier_threshold: float,
+    error_aggregation_method: ErrorAggregationMethod | None = None,
     max_iterations: int | None = None,
 ) -> Tuple[npt.NDArray, list[FeaturePair]]:
     feature_pairs = [
@@ -59,6 +60,7 @@ def estimate_essential_mat_with_ransac(
         model_fitter=partial(eight_point_model_fitter, camera_matrix=camera_matrix),
         inlier_scorer=partial(calculate_sed_inlier_score, camera_matrix=camera_matrix),
         inlier_threshold=sed_inlier_threshold,
+        error_aggregation_method=error_aggregation_method,
         max_iterations=max_iterations,
     )
     if e is None:

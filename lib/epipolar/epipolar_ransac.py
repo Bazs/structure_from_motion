@@ -48,6 +48,7 @@ def estimate_essential_mat_with_ransac(
     features_b: list[Feature],
     matches: list[Match],
     sed_inlier_threshold: float,
+    min_num_extra_inliers: int | None = None,
     error_aggregation_method: ErrorAggregationMethod | None = None,
     max_iterations: int | None = None,
 ) -> Tuple[npt.NDArray, list[FeaturePair]]:
@@ -60,6 +61,7 @@ def estimate_essential_mat_with_ransac(
         model_fitter=partial(eight_point_model_fitter, camera_matrix=camera_matrix),
         inlier_scorer=partial(calculate_sed_inlier_score, camera_matrix=camera_matrix),
         inlier_threshold=sed_inlier_threshold,
+        min_num_extra_inliers=min_num_extra_inliers,
         error_aggregation_method=error_aggregation_method,
         max_iterations=max_iterations,
     )

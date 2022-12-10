@@ -103,6 +103,7 @@ def run_sfm(cfg: DictConfig) -> None:
         matches=matches,
         sed_inlier_threshold=cfg.ransac.sed_inlier_threshold,
         error_aggregation_method=ErrorAggregationMethod.RMS,
+        min_num_extra_inliers=cfg.ransac.min_num_extra_inliers,
         max_iterations=cfg.ransac.max_iterations,
     )
     match_image = _draw_matches(

@@ -4,5 +4,6 @@ ncc_window_size: 9
 ratio_test_threshold: 0.7
 match_score_threshold: 0.3
 ransac:
-  sed_inlier_threshold: 1e-7
+  sed_inlier_threshold: 1e-6
+  min_num_extra_inliers: 5
   max_iterations: 300

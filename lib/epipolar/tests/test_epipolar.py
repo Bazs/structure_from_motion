@@ -371,7 +371,7 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
     max_y = max(y_coords)
     min_y = min(y_coords)
 
-    NUM_NOISE_MATCHES = 4
+    NUM_NOISE_MATCHES = 2
     noise_x_coords = fixture.rng.random(NUM_NOISE_MATCHES * 2) * (max_x - min_x) + min_x
     noise_y_coords = fixture.rng.random(NUM_NOISE_MATCHES * 2) * (max_y - min_y) + min_y
 
@@ -400,8 +400,8 @@ def test_estimate_essential_mat_with_ransac(eight_point_fixture: EightPointFixtu
         features_a=features_1,
         features_b=features_2,
         matches=matches,
-        sed_inlier_threshold=1e-3,
-        error_aggregation_method=ErrorAggregationMethod.RMS,
+        sed_inlier_threshold=0.01,
+        error_aggregation_method=ErrorAggregationMethod.SUM,
     )
     print(len(inlier_feature_pairs))
     np.testing.assert_almost_equal(e_cv, e, decimal=5)

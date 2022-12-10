@@ -106,6 +106,8 @@ def test_ransac():
         model_fitter=line_fitter_2d,
         inlier_scorer=line_scorer_2d,
         inlier_threshold=0.2,
+        min_num_extra_inliers=len(all_points_list) / 2,
+        error_aggregation_method=ransac.ErrorAggregationMethod.RMS,
     )
     inliers = np.array(inliers)
     inliers_ax.scatter(inliers[:, 0], inliers[:, 1])

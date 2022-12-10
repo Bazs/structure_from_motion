@@ -1,3 +1,4 @@
+import copy
 import logging
 import random
 from enum import Enum
@@ -10,6 +11,7 @@ import numpy as np
 class ErrorAggregationMethod(Enum):
     SUM = "sum"
     SQUARE = "square"
+    MEAN = "mean"
     RMS = "rms"
 
 
@@ -19,6 +21,7 @@ def fit_with_ransac(
     model_fitter: Callable[[Sequence], Any],
     inlier_scorer: Callable[[Any, Any], float],
     inlier_threshold: float,
+    min_num_extra_inliers: int | None = None,
     error_aggregation_method: ErrorAggregationMethod | None = None,
     max_iterations: int | None = None,
 ) -> Tuple[Optional[Any], Sequence]:
@@ -33,7 +36,9 @@ def fit_with_ransac(
             element of data fits the model returned by model_fitter.
         inlier_threshold: If inlier_scorer returns a value at most this, then the corresponding element of data
             is considered to fit the model under evaluation.
-        error_aggregation_method: Method used to aggregate the score before comparing models.
+        min_num_extra_inliers: The minimum number of inliers from among the data points not used to fit the model,
+            which should have an error below inlier_threshold in order to consider the model a good fit. Default is 0.
+        error_aggregation_method: Method used to aggregate the score before comparing models. Default is RMS.
         max_iterations: The number of iterations to run the algorithm for.
     Returns:
         Tuple of {the model returned by model_fitter which has the most inliers, the elements of data which fit the
@@ -42,31 +47,40 @@ def fit_with_ransac(
     if max_iterations is None:
         max_iterations = 100
     if error_aggregation_method is None:
-        error_aggregation_method = ErrorAggregationMethod.SUM
+        error_aggregation_method = ErrorAggregationMethod.RMS
+    if min_num_extra_inliers is None:
+        min_num_extra_inliers = 0
 
     best_model = None
     best_model_inliers = []
     best_model_error = inf
 
+    data = copy.deepcopy(data)
+
     for _ in range(max_iterations):
-        samples = random.sample(data, k=model_fit_data_count)
-        model = model_fitter(samples)
-        data_scores = [inlier_scorer(model, data_point) for data_point in data]
-        logging.info("Data scores: %s", data_scores)
-        inliers = [
+        random.shuffle(data)
+        maybe_inliers = data[:model_fit_data_count]
+        rest_of_data = data[model_fit_data_count:]
+        model = model_fitter(maybe_inliers)
+        rest_of_data_scores = [
+            inlier_scorer(model, data_point) for data_point in rest_of_data
+        ]
+        logging.info("Data scores: %s", rest_of_data_scores)
+        also_inliers = [
             data_point
-            for data_point, score in zip(data, data_scores)
+            for data_point, score in zip(rest_of_data, rest_of_data_scores)
             if score <= inlier_threshold
         ]
-        if 1 <= len(inliers) >= len(best_model_inliers):
+        if min_num_extra_inliers <= len(also_inliers):
+            all_inliers = maybe_inliers + also_inliers
             inlier_errors = [
-                score for score in data_scores if score <= inlier_threshold
+                inlier_scorer(model, data_point) for data_point in all_inliers
             ]
             model_error = _aggregate_error(
                 inlier_errors, aggregation_method=error_aggregation_method
             )
             if model_error < best_model_error:
-                best_model_inliers = inliers
+                best_model_inliers = all_inliers
                 best_model = model
                 best_model_error = model_error
 
@@ -86,6 +100,8 @@ def _aggregate_error(
         return sum(errors)
     elif ErrorAggregationMethod.SQUARE.value == aggregation_method.value:
         return np.sum(np.square(errors)).item()
+    elif ErrorAggregationMethod.MEAN.value == aggregation_method.value:
+        return np.mean(errors).item()
     elif ErrorAggregationMethod.RMS.value == aggregation_method.value:
         return np.sqrt(np.mean(np.square(errors))).item()
     else:

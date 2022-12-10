@@ -17,6 +17,7 @@ from lib.epipolar.eight_point import create_trivial_matches, recover_r_t_from_e
 from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
 from lib.feature_matching import matching, ncc
 from lib.harris import harris_detector as harris
+from lib.ransac.ransac import ErrorAggregationMethod
 from lib.transforms.transforms import Transform3D
 
 _WINDOW_NAME = "SfM"
@@ -101,6 +102,7 @@ def run_sfm(cfg: DictConfig) -> None:
         features_b=image_2_corners,
         matches=matches,
         sed_inlier_threshold=cfg.ransac.sed_inlier_threshold,
+        error_aggregation_method=ErrorAggregationMethod.RMS,
         max_iterations=cfg.ransac.max_iterations,
     )
     match_image = _draw_matches(

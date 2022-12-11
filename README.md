@@ -18,7 +18,8 @@ Then:
 1. Match corners using descriptors calculated by Squared Sum of Differences. Use cross-check and ratio-test validation to filter out unlikely matches.
 1. Estimate a most likely Essential Matrix from the set of remaining matches. The estimation uses RANSAC with the Eight-Point Algorithm as model fitter and
 the Symmetric Epipolar Distance as model scorer.
-1. Decompose the Essential Matrix into rotation and translation, extracting a single possible solution using the cheriality check.
+1. Decompose the Essential Matrix into rotation and translation, extracting a single possible solution using the cheriality check. Filter out matches which fail the cheirality check.
+1. Triangulate and visualize the 3D position of remaining matches.
 
 Example illustration of feature matches which were left inliers after running RANSAC:
 ![Inlier Feature Matches after RANSAC](./docs/matching_with_ransac.jpg)

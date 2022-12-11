@@ -237,13 +237,18 @@ def test_epipolar_pipeline(eight_point_fixture: EightPointFixture):
         eight_point.to_normalized_image_coords(feature, fixture.K)
         for feature in features_2
     ]
-    cam2_R_cam1, cam2_t_cam2_cam1 = eight_point._recover_r_t(
+    cam2_R_cam1, cam2_t_cam2_cam1, mask = eight_point._recover_r_t(
         normalized_features_a, normalized_features_b, e
     )
+    # Check that all matches are considered inliers by the algorithm.
+    assert np.all(np.array(range(len(normalized_features_a))) == mask)
     # Run the rotation/translation estimation end-to-end and check that it gives the same results.
-    cam2_R_cam1_end_to_end, cam2_t_cam2_cam1_end_to_end = eight_point.estimate_r_t(
-        fixture.K, features_1, features_2, matches
-    )
+    (
+        cam2_R_cam1_end_to_end,
+        cam2_t_cam2_cam1_end_to_end,
+        mask_2,
+    ) = eight_point.estimate_r_t(fixture.K, features_1, features_2, matches)
+    np.testing.assert_equal(mask, mask_2)
     np.testing.assert_allclose(cam2_R_cam1_end_to_end, cam2_R_cam1)
     np.testing.assert_allclose(cam2_t_cam2_cam1_end_to_end, cam2_t_cam2_cam1)
 

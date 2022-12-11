@@ -68,8 +68,19 @@ def recover_r_t_from_e(
     features_a: list[Feature],
     features_b: list[Feature],
 ):
-    """Recover the rotation and translation from an Essential matrix. Needs matching features to
-    perform the cheriality check.
+    """Recover the rotation and translation up to a scale from an Essential matrix.
+
+    The solution with the most amount of corresponding points passing the cheirality check
+    is returned.
+
+    Args:
+        e: essential matrix.
+        camera_matrix: Intrinsic camera matrix.
+        features_a: Feature points from the first image.
+        features_b: Corresponding feature points from the second image.
+    Returns:
+        Tuple of (cam2_R_cam1, cam2_t_cam2_cam1, mask). Mask is an array containing indices into
+            features_a and features_b which passed the cheirality check.
     """
     features_a = [
         to_normalized_image_coords(feature, camera_matrix) for feature in features_a
@@ -78,9 +89,9 @@ def recover_r_t_from_e(
         to_normalized_image_coords(feature, camera_matrix) for feature in features_b
     ]
 
-    r, t = _recover_r_t(features_a, features_b, e)
+    r, t, mask = _recover_r_t(features_a, features_b, e)
 
-    return r, t
+    return r, t, mask
 
 
 def estimate_essential_mat(
@@ -172,11 +183,12 @@ def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.nda
     is returned.
 
     Args:
-        features_a: Feature points from the first image.
-        features_b: Corresponding feature points from the second image.
+        features_a: Feature points from the first image. Must be in normalized image coordinates.
+        features_b: Corresponding feature points from the second image. Must be in normalized image coordinates.
         e: essential matrix.
     Returns:
-        Tuple of (cam2_R_cam1, cam2_t_cam2_cam1)
+        Tuple of (cam2_R_cam1, cam2_t_cam2_cam1, mask). Mask is an array containing indices into
+            features_a and features_b which passed the cheirality check.
     """
     # Number of correspondences passing the cheirality check per possible solution.
     num_good_correspondences = []
@@ -184,20 +196,23 @@ def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.nda
     rot_mats = []
     # Translation vectors of possible solutions in the same order as num_good_correspondences.
     translations = []
+    passing_correspondence_indices_per_solution = []
 
     cam2_R_cam1_1, cam2_R_cam1_2, cam2_t_cam2_cam1_1 = _recover_all_r_t(e)
     for cam2_R_cam1, cam2_t_cam2_cam1 in itertools.product(
         [cam2_R_cam1_1, cam2_R_cam1_2], [cam2_t_cam2_cam1_1, -cam2_t_cam2_cam1_1]
     ):
+        passing_correspondence_indices = np.nonzero(
+            [
+                _cheirality_check(feature_a, feature_b, cam2_R_cam1, cam2_t_cam2_cam1)
+                for feature_a, feature_b in zip(features_a, features_b)
+            ]
+        )[0]
+        passing_correspondence_indices_per_solution.append(
+            passing_correspondence_indices
+        )
         num_good_correspondences.append(
-            np.count_nonzero(
-                [
-                    _cheirality_check(
-                        feature_a, feature_b, cam2_R_cam1, cam2_t_cam2_cam1
-                    )
-                    for feature_a, feature_b in zip(features_a, features_b)
-                ]
-            )
+            np.count_nonzero(passing_correspondence_indices)
         )
         rot_mats.append(cam2_R_cam1)
         translations.append(cam2_t_cam2_cam1)
@@ -206,7 +221,11 @@ def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.nda
             "None of the transformations pass the cheirality check."
         )
     best_solution_index = np.argmax(num_good_correspondences)
-    return rot_mats[best_solution_index], translations[best_solution_index]
+    return (
+        rot_mats[best_solution_index],
+        translations[best_solution_index],
+        passing_correspondence_indices_per_solution[best_solution_index],
+    )
 
 
 def _recover_all_r_t(e: np.ndarray) -> Tuple[Rotation, np.ndarray]:

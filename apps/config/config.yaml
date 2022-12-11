@@ -1,9 +1,9 @@
 image_downscale_factor: 1.0
-num_harris_corners: 400
+num_harris_corners: 600
 ncc_window_size: 9
 ratio_test_threshold: 0.7
 match_score_threshold: 0.3
 ransac:
-  sed_inlier_threshold: 1e-6
+  sed_inlier_threshold: 1.5e-6
   min_num_extra_inliers: 10
-  max_iterations: 1000
+  max_iterations: 2000

@@ -100,7 +100,7 @@ def run_sfm(cfg: DictConfig) -> None:
         matches,
     )
     _show_image(match_image)
-    cv.waitKey()
+    # cv.waitKey()
 
     # Show a histogram of matching scores
     fig, ax = plt.subplots(1, 1)
@@ -130,9 +130,9 @@ def run_sfm(cfg: DictConfig) -> None:
         create_trivial_matches(len(inlier_feature_pairs)),
     )
     _show_image(match_image)
-    cv.waitKey()
+    # cv.waitKey()
 
-    r, t = recover_r_t_from_e(
+    r, t, inlier_mask = recover_r_t_from_e(
         e=e,
         camera_matrix=image_1_k,
         features_a=inlier_features_a,
@@ -166,12 +166,9 @@ def run_sfm(cfg: DictConfig) -> None:
     logging.info("Calculated transform:")
     _print_transform(cam2_T_cam1)
 
-    inlier_features_a = [
-        to_normalized_image_coords(feature, image_1_k) for feature in inlier_features_a
-    ]
-    inlier_features_b = [
-        to_normalized_image_coords(feature, image_1_k) for feature in inlier_features_b
-    ]
+    # Only keep matches which passed the cheirality check.
+    inlier_features_a = np.take(inlier_features_a, inlier_mask)
+    inlier_features_b = np.take(inlier_features_b, inlier_mask)
     world_t_world_points = triangulate_points(
         inlier_features_a,
         inlier_features_b,

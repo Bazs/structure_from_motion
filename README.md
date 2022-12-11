@@ -37,7 +37,7 @@ To run a demo on a predefined dataset:
 1. Install the Python requirements.
 1. Invoke `make demo`.
 
-**Note**: On Mac OS the default `make` version is too old, please install a moder version using `brew install`. The new version will be available under the `gmake` alias.
+**Note**: On Mac OS the default `make` version is too old, please install a modern version using `brew install`. The new version will be available under the `gmake` alias.
 
 ## Sources
 

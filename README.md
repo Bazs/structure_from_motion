@@ -29,6 +29,15 @@ The small blue markers show the Harris corners. Matching features are connected 
 * GNU Make 4.1+
 * Python 3.10 - install `requirements.txt`
 
+## Running demo
+
+To run a demo on a predefined dataset:
+
+1. Install the Python requirements.
+1. Invoke `make demo`.
+
+**Note**: On Mac OS the default `make` version is too old, please install a moder version using `brew install`. The new version will be available under the `gmake` alias.
+
 ## Sources
 
 Besides the Autonomous Mobile Robots book, I used several other sources to implement the various steps of the vision

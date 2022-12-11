@@ -7,7 +7,7 @@ endef
 data:
 	mkdir -p data
 	-wget -nc -O data/images.zip https://vision.middlebury.edu/mview/data/data/temple.zip
-	unzip data/images.zip -d data
+	unzip -nq data/images.zip -d data
 
 .PHONY: requirements.txt
 requirements.txt: requirements.in
@@ -19,3 +19,7 @@ requirements_ci.txt: requirements_ci.in
 
 .PHONY: requirements
 requirements: requirements.txt requirements_ci.txt
+
+.PHONY: demo
+demo: data
+	python main.py

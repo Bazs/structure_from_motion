@@ -6,6 +6,7 @@ from math import inf
 from typing import Any, Callable, Optional, Sequence, Tuple
 
 import numpy as np
+import tqdm
 
 
 class ErrorAggregationMethod(Enum):
@@ -57,7 +58,7 @@ def fit_with_ransac(
 
     data = copy.deepcopy(data)
 
-    for _ in range(max_iterations):
+    for _ in tqdm.tqdm(range(max_iterations), "RANSAC iterations"):
         random.shuffle(data)
         maybe_inliers = data[:model_fit_data_count]
         rest_of_data = data[model_fit_data_count:]
@@ -65,7 +66,7 @@ def fit_with_ransac(
         rest_of_data_scores = [
             inlier_scorer(model, data_point) for data_point in rest_of_data
         ]
-        logging.info("Data scores: %s", rest_of_data_scores)
+        logging.debug("Data scores: %s", rest_of_data_scores)
         also_inliers = [
             data_point
             for data_point, score in zip(rest_of_data, rest_of_data_scores)

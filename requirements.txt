@@ -340,6 +340,10 @@ tomli==2.0.1 \
     --hash=sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc \
     --hash=sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f
     # via pytest
+tqdm==4.64.1 \
+    --hash=sha256:5f4f682a004951c1b450bc753c710e9280c5746ce6ffedee253ddbcbf54cf1e4 \
+    --hash=sha256:6fee160d6ffcd1b1c68c65f14c829c22832bc401726335ce92c52d395944a6a1
+    # via -r ./requirements_base.in
 transforms3d==0.3.1 \
     --hash=sha256:404c7797c78aa461cb8043081901fc5517cef342d5ff56becd74a7967ba88d78
     # via -r ./requirements_base.in

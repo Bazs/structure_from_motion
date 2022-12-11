@@ -165,7 +165,7 @@ def estimate_fundamental_mat(
     # Enforce that the [2, 2] element == 1.0
     e /= e[2, 2]
 
-    _logger.info(f"Final fundamental mat: {e}")
+    _logger.debug(f"Final fundamental mat: {e}")
 
     return e
 

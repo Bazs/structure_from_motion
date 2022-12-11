@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import tqdm
 
 from lib.common import correlate, feature
 
@@ -72,7 +73,9 @@ def _calculate_cornerness_image(
         dtype=float,
     )
 
-    for row_idx in range(height - block_size):
+    for row_idx in tqdm.trange(
+        height - block_size, desc="Calculating cornerness", position=0
+    ):
         for col_idx in range(width - block_size):
             Ix2 = np.sum(_select_window(Ix2_mat, row_idx, col_idx, block_size))
             Ix_Iy = np.sum(_select_window(Ix_Iy_mat, row_idx, col_idx, block_size))

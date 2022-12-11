@@ -13,11 +13,7 @@ from scipy.spatial.transform import Rotation
 
 from lib.common import feature
 from lib.data_utils.middlebury_utils import load_camera_k_r_t
-from lib.epipolar.eight_point import (
-    create_trivial_matches,
-    recover_r_t_from_e,
-    to_normalized_image_coords,
-)
+from lib.epipolar.eight_point import create_trivial_matches, recover_r_t_from_e
 from lib.epipolar.epipolar_ransac import estimate_essential_mat_with_ransac
 from lib.epipolar.triangulation import triangulate_points
 from lib.feature_matching import matching, ncc
@@ -110,6 +106,7 @@ def run_sfm(cfg: DictConfig) -> None:
 
     matches = _filter_matches(matches, cfg.match_score_threshold)
 
+    logging.info("Estimating Essential Matrix")
     e, inlier_feature_pairs = estimate_essential_mat_with_ransac(
         image_1_k,
         features_a=image_1_corners,
@@ -132,6 +129,7 @@ def run_sfm(cfg: DictConfig) -> None:
     _show_image(match_image)
     # cv.waitKey()
 
+    logging.info("Recovering Relative Pose")
     r, t, inlier_mask = recover_r_t_from_e(
         e=e,
         camera_matrix=image_1_k,
@@ -179,6 +177,7 @@ def run_sfm(cfg: DictConfig) -> None:
     _show_image(match_image)
     # cv.waitKey()
 
+    logging.info("Triangulating points")
     world_t_world_points = triangulate_points(
         inlier_features_a,
         inlier_features_b,

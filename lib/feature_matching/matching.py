@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Callable, Dict, List, NewType, Set
 
 import numpy as np
+import tqdm
 
 from lib.common.feature import Feature
 
@@ -53,7 +54,9 @@ def match_brute_force(
     """
     matches_for_a_features: List[List[Match]] = [[] for _ in range(len(features_a))]
 
-    for a_index, feature_a in enumerate(features_a):
+    for a_index, feature_a in tqdm.tqdm(
+        enumerate(features_a), "Brute force feature matching", total=len(features_a)
+    ):
         for b_index, feature_b in enumerate(features_b):
             score = score_function(feature_a, feature_b)
             heapq.heappush(

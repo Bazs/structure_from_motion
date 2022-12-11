@@ -6,4 +6,4 @@ match_score_threshold: 0.3
 ransac:
   sed_inlier_threshold: 1e-6
   min_num_extra_inliers: 10
-  max_iterations: 500
+  max_iterations: 1000

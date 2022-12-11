@@ -130,13 +130,38 @@ def run_sfm(cfg: DictConfig) -> None:
         create_trivial_matches(len(inlier_feature_pairs)),
     )
     _show_image(match_image)
+    cv.waitKey()
 
     r, t = recover_r_t_from_e(
         e=e,
         camera_matrix=image_1_k,
-        feature_a=inlier_feature_pairs[0][0],
-        feature_b=inlier_feature_pairs[0][1],
+        features_a=inlier_features_a,
+        features_b=inlier_features_b,
     )
+    # Check against the OpenCV solution
+    _, r_cv, t_cv, _ = cv.recoverPose(
+        e,
+        np.array(
+            [
+                [feature_pair[0].x, feature_pair[0].y]
+                for feature_pair in inlier_feature_pairs
+            ]
+        ),
+        np.array(
+            [
+                [feature_pair[1].x, feature_pair[1].y]
+                for feature_pair in inlier_feature_pairs
+            ]
+        ),
+        image_1_k,
+    )
+    if not np.allclose(r, r_cv, rtol=0.0, atol=1e-5) or not np.allclose(
+        t, np.squeeze(t_cv), rtol=0.0, atol=1e-5
+    ):
+        raise RuntimeError(
+            f"OpenCV pose estimate\nR:\n{r_cv}\nt:\n{t_cv}\ndiffers from estimated pose\nR:\n{r}\nt:\n{t}."
+        )
+
     cam2_T_cam1 = Transform3D.from_rmat_t(r, t)
     logging.info("Calculated transform:")
     _print_transform(cam2_T_cam1)

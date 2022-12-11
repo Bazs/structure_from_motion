@@ -52,30 +52,33 @@ def estimate_r_t(
         matches=matches,
     )
 
-    feature_a = features_a[0]
-    match = next(match for match in matches if match.a_index == 0)
-    feature_b = features_b[match.b_index]
+    features_a_in_match_order = [features_a[match.a_index] for match in matches]
+    features_b_in_match_order = [features_b[match.b_index] for match in matches]
     return recover_r_t_from_e(
         e=e,
         camera_matrix=camera_matrix,
-        feature_a=feature_a,
-        feature_b=feature_b,
+        features_a=features_a_in_match_order,
+        features_b=features_b_in_match_order,
     )
 
 
 def recover_r_t_from_e(
     e: npt.NDArray,
     camera_matrix: npt.NDArray,
-    feature_a: Feature,
-    feature_b: Feature,
+    features_a: list[Feature],
+    features_b: list[Feature],
 ):
     """Recover the rotation and translation from an Essential matrix. Needs matching features to
     perform the cheriality check.
     """
-    feature_a = to_normalized_image_coords(feature_a, camera_matrix)
-    feature_b = to_normalized_image_coords(feature_b, camera_matrix)
+    features_a = [
+        to_normalized_image_coords(feature, camera_matrix) for feature in features_a
+    ]
+    features_b = [
+        to_normalized_image_coords(feature, camera_matrix) for feature in features_b
+    ]
 
-    r, t = _recover_r_t(feature_a, feature_b, e)
+    r, t = _recover_r_t(features_a, features_b, e)
 
     return r, t
 
@@ -162,25 +165,48 @@ def create_trivial_matches(num_features: int) -> list[Match]:
     ]
 
 
-def _recover_r_t(feature_a: Feature, feature_b: Feature, e: np.ndarray):
+def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.ndarray):
     """Recover the rotation and translation up to a scale from an Essential matrix.
 
+    The solution with the most amount of corresponding points passing the cheirality check
+    is returned.
+
     Args:
-        feature_a: A feature point from the first image.
-        feature_b: Corresponding feature point from the second image.
+        features_a: Feature points from the first image.
+        features_b: Corresponding feature points from the second image.
         e: essential matrix.
     Returns:
         Tuple of (cam2_R_cam1, cam2_t_cam2_cam1)
     """
+    # Number of correspondences passing the cheirality check per possible solution.
+    num_good_correspondences = []
+    # Rotation matrices of possible solutions in the same order as num_good_correspondences.
+    rot_mats = []
+    # Translation vectors of possible solutions in the same order as num_good_correspondences.
+    translations = []
+
     cam2_R_cam1_1, cam2_R_cam1_2, cam2_t_cam2_cam1_1 = _recover_all_r_t(e)
     for cam2_R_cam1, cam2_t_cam2_cam1 in itertools.product(
         [cam2_R_cam1_1, cam2_R_cam1_2], [cam2_t_cam2_cam1_1, -cam2_t_cam2_cam1_1]
     ):
-        if _cheirality_check(feature_a, feature_b, cam2_R_cam1, cam2_t_cam2_cam1):
-            return cam2_R_cam1, cam2_t_cam2_cam1
-    raise EightPointCalculationError(
-        "None of the transformations pass the cheirality check."
-    )
+        num_good_correspondences.append(
+            np.count_nonzero(
+                [
+                    _cheirality_check(
+                        feature_a, feature_b, cam2_R_cam1, cam2_t_cam2_cam1
+                    )
+                    for feature_a, feature_b in zip(features_a, features_b)
+                ]
+            )
+        )
+        rot_mats.append(cam2_R_cam1)
+        translations.append(cam2_t_cam2_cam1)
+    if 0 == np.count_nonzero(num_good_correspondences):
+        raise EightPointCalculationError(
+            "None of the transformations pass the cheirality check."
+        )
+    best_solution_index = np.argmax(num_good_correspondences)
+    return rot_mats[best_solution_index], translations[best_solution_index]
 
 
 def _recover_all_r_t(e: np.ndarray) -> Tuple[Rotation, np.ndarray]:

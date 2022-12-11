@@ -229,14 +229,16 @@ def test_epipolar_pipeline(eight_point_fixture: EightPointFixture):
         pytest.fail(rotmat_comparison_failure_message)
 
     # Recover rotation and translation from the essential matrix.
-    normalized_feature_a = eight_point.to_normalized_image_coords(
-        features_1[0], fixture.K
-    )
-    normalized_feature_b = eight_point.to_normalized_image_coords(
-        features_2[0], fixture.K
-    )
+    normalized_features_a = [
+        eight_point.to_normalized_image_coords(feature, fixture.K)
+        for feature in features_1
+    ]
+    normalized_features_b = [
+        eight_point.to_normalized_image_coords(feature, fixture.K)
+        for feature in features_2
+    ]
     cam2_R_cam1, cam2_t_cam2_cam1 = eight_point._recover_r_t(
-        normalized_feature_a, normalized_feature_b, e
+        normalized_features_a, normalized_features_b, e
     )
     # Run the rotation/translation estimation end-to-end and check that it gives the same results.
     cam2_R_cam1_end_to_end, cam2_t_cam2_cam1_end_to_end = eight_point.estimate_r_t(

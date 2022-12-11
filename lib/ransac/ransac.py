@@ -86,8 +86,7 @@ def fit_with_ransac(
 
     if best_model is None:
         raise ValueError(
-            f"No model could be found with at least {model_fit_data_count} inliers. Check model_fitter, "
-            "inlier_scorer, and inlier_threshold, as this can only happen if there is a mistake in those arguments."
+            f"No model could be found with at least {min_num_extra_inliers + model_fit_data_count} inliers."
         )
 
     return best_model, best_model_inliers

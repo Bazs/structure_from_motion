@@ -159,16 +159,12 @@ def run_sfm(cfg: DictConfig) -> None:
         t, np.squeeze(t_cv), rtol=0.0, atol=1e-5
     ):
         raise RuntimeError(
-            f"OpenCV pose estimate\nR:\n{r_cv}\nt:\n{t_cv}\ndiffers from estimated pose\nR:\n{r}\nt:\n{t}."
+            f"OpenCV pose estimate\nR:\n{r_cv}\nt:\n{t_cv}\ndiffers from estimated pose\nR:\n{r}\nt:\n{t}"
         )
 
     cam2_T_cam1 = Transform3D.from_rmat_t(r, t)
     logging.info("Calculated transform:")
     _print_transform(cam2_T_cam1)
-    expected_cam1_T_cam2 = cam1_T_world @ cam2_T_world.inv()
-    expected_cam1_T_cam2.t /= np.linalg.norm(expected_cam1_T_cam2.t)
-    logging.info("Expected transform:")
-    _print_transform(expected_cam1_T_cam2)
 
     inlier_features_a = [
         to_normalized_image_coords(feature, image_1_k) for feature in inlier_features_a
@@ -182,12 +178,40 @@ def run_sfm(cfg: DictConfig) -> None:
         intrinsic_camera_matrix=image_1_k,
         cam2_T_cam1=cam2_T_cam1,
     )
+
+    # Check against OpenCV solution.
+    K_ext = np.hstack((image_1_k, np.zeros((3, 1))))
+    cam1_T_world = Transform3D.from_rmat_t(np.eye(3), np.zeros((3,)))
+    cam2_T_world = cam2_T_cam1 @ cam1_T_world
+    P1 = K_ext @ cam1_T_world.Tmat
+    P2 = K_ext @ cam2_T_world.Tmat
+    world_t_world_points_cv = cv.triangulatePoints(
+        P1,
+        P2,
+        np.array([[feature.x, feature.y] for feature in inlier_features_a]).T,
+        np.array([[feature.x, feature.y] for feature in inlier_features_b]).T,
+    )
+    world_t_world_points_cv = world_t_world_points_cv.T
+    world_t_world_points_cv /= world_t_world_points_cv[:, -1].reshape((-1, 1))
+    world_t_world_points_cv = world_t_world_points_cv[:, :-1]
+
     fig = plt.figure()
-    ax_3d = fig.add_subplot(111, projection="3d")
+    ax_3d = fig.add_subplot(121, projection="3d")
+    ax_3d.set_title("Estimated 3D points.")
     ax_3d.scatter(
         world_t_world_points[:, 0],
         world_t_world_points[:, 1],
         world_t_world_points[:, 2],
+    )
+    ax_3d.set_xlabel("x")
+    ax_3d.set_ylabel("y")
+    ax_3d.set_zlabel("z")
+    ax_3d = fig.add_subplot(122, projection="3d")
+    ax_3d.set_title("Estimated 3D points computed by OpenCV.")
+    ax_3d.scatter(
+        world_t_world_points_cv[:, 0],
+        world_t_world_points_cv[:, 1],
+        world_t_world_points_cv[:, 2],
     )
     ax_3d.set_xlabel("x")
     ax_3d.set_ylabel("y")

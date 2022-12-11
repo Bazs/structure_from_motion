@@ -169,6 +169,16 @@ def run_sfm(cfg: DictConfig) -> None:
     # Only keep matches which passed the cheirality check.
     inlier_features_a = np.take(inlier_features_a, inlier_mask)
     inlier_features_b = np.take(inlier_features_b, inlier_mask)
+    match_image = _draw_matches(
+        test_image_1,
+        test_image_2,
+        inlier_features_a,
+        inlier_features_b,
+        create_trivial_matches(len(inlier_features_a)),
+    )
+    _show_image(match_image)
+    # cv.waitKey()
+
     world_t_world_points = triangulate_points(
         inlier_features_a,
         inlier_features_b,
@@ -193,22 +203,12 @@ def run_sfm(cfg: DictConfig) -> None:
     world_t_world_points_cv = world_t_world_points_cv[:, :-1]
 
     fig = plt.figure()
-    ax_3d = fig.add_subplot(121, projection="3d")
+    ax_3d = fig.add_subplot(111, projection="3d")
     ax_3d.set_title("Estimated 3D points.")
     ax_3d.scatter(
         world_t_world_points[:, 0],
         world_t_world_points[:, 1],
         world_t_world_points[:, 2],
-    )
-    ax_3d.set_xlabel("x")
-    ax_3d.set_ylabel("y")
-    ax_3d.set_zlabel("z")
-    ax_3d = fig.add_subplot(122, projection="3d")
-    ax_3d.set_title("Estimated 3D points computed by OpenCV.")
-    ax_3d.scatter(
-        world_t_world_points_cv[:, 0],
-        world_t_world_points_cv[:, 1],
-        world_t_world_points_cv[:, 2],
     )
     ax_3d.set_xlabel("x")
     ax_3d.set_ylabel("y")

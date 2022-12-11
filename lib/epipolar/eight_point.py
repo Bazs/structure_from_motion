@@ -67,6 +67,7 @@ def recover_r_t_from_e(
     camera_matrix: npt.NDArray,
     features_a: list[Feature],
     features_b: list[Feature],
+    distance_threshold: float | None = None,
 ):
     """Recover the rotation and translation up to a scale from an Essential matrix.
 
@@ -78,6 +79,7 @@ def recover_r_t_from_e(
         camera_matrix: Intrinsic camera matrix.
         features_a: Feature points from the first image.
         features_b: Corresponding feature points from the second image.
+        distance_threshold: Threshold for filtering out far away points, i.e. points at infinity.
     Returns:
         Tuple of (cam2_R_cam1, cam2_t_cam2_cam1, mask). Mask is an array containing indices into
             features_a and features_b which passed the cheirality check.
@@ -89,7 +91,7 @@ def recover_r_t_from_e(
         to_normalized_image_coords(feature, camera_matrix) for feature in features_b
     ]
 
-    r, t, mask = _recover_r_t(features_a, features_b, e)
+    r, t, mask = _recover_r_t(features_a, features_b, e, distance_threshold)
 
     return r, t, mask
 
@@ -176,7 +178,12 @@ def create_trivial_matches(num_features: int) -> list[Match]:
     ]
 
 
-def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.ndarray):
+def _recover_r_t(
+    features_a: list[Feature],
+    features_b: list[Feature],
+    e: np.ndarray,
+    distance_threshold: float | None = None,
+):
     """Recover the rotation and translation up to a scale from an Essential matrix.
 
     The solution with the most amount of corresponding points passing the cheirality check
@@ -186,6 +193,7 @@ def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.nda
         features_a: Feature points from the first image. Must be in normalized image coordinates.
         features_b: Corresponding feature points from the second image. Must be in normalized image coordinates.
         e: essential matrix.
+        distance_threshold: Threshold for filtering out far away points, i.e. points at infinity.
     Returns:
         Tuple of (cam2_R_cam1, cam2_t_cam2_cam1, mask). Mask is an array containing indices into
             features_a and features_b which passed the cheirality check.
@@ -204,7 +212,13 @@ def _recover_r_t(features_a: list[Feature], features_b: list[Feature], e: np.nda
     ):
         passing_correspondence_indices = np.nonzero(
             [
-                _cheirality_check(feature_a, feature_b, cam2_R_cam1, cam2_t_cam2_cam1)
+                _cheirality_check(
+                    feature_a,
+                    feature_b,
+                    cam2_R_cam1,
+                    cam2_t_cam2_cam1,
+                    distance_threshold=distance_threshold,
+                )
                 for feature_a, feature_b in zip(features_a, features_b)
             ]
         )[0]
@@ -437,19 +451,38 @@ def _cheirality_check(
     feature_b: Feature,
     cam2_R_cam1: npt.NDArray,
     cam2_t_cam2_cam1: npt.NDArray,
+    distance_threshold: float | None = None,
     z_axis_index: int = 2,
 ) -> bool:
     """Return whether the transformation between the two camera poses places the feature in front both of the
-    cameras."""
+    cameras.
+
+    Args:
+        feature_a: Point in image 1.
+        feature_b: Corresponding point in image 2.
+        cam2_r_cam1: Rotation matrix rotating camera 1's frame into camera 2's frame.
+        cam2_t_cam2_cam1: Translation vector from camera 2's frame into camera 1's frame.
+        distance_threshold: If the triangulated point is farther away than this threshold from the
+            camera, then the check is considered failed.
+        z_axis_index: The axis of the triangulated point which is the one pointing outward from the camera frame.
+    """
+    if distance_threshold is None:
+        distance_threshold = 50.0
+
     # Place the first camera into the world frame's origin.
     P1 = Transform3D.identity().Tmat
     P2 = Transform3D.from_rmat_t(cam2_R_cam1, cam2_t_cam2_cam1).Tmat
     cam1_t_cam1_feature = triangulate_point_correspondence(feature_a, feature_b, P1, P2)
     cam2_t_cam2_feature = (P2 @ [*cam1_t_cam1_feature, 1])[:-1]
     TOLERANCE = 1e-8
-    if np.all(
-        np.array([cam1_t_cam1_feature[z_axis_index], cam2_t_cam2_feature[z_axis_index]])
-        >= (0 - TOLERANCE)
+    if (
+        np.all(
+            np.array(
+                [cam1_t_cam1_feature[z_axis_index], cam2_t_cam2_feature[z_axis_index]]
+            )
+            >= (0 - TOLERANCE)
+        )
+        and np.linalg.norm(cam1_t_cam1_feature) <= distance_threshold
     ):
         return True
     return False
